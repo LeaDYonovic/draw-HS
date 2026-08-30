@@ -11,6 +11,7 @@ import {
   calculateScore,
   countWordCharacters,
   getChoiceEligibleCards,
+  getCardAttributeClue,
   loadCardCatalog,
   maskWord,
   normalizeGuess,
@@ -258,6 +259,7 @@ app.get("/api/cards/search", (request, response) => {
     cost: parseCardStat(request.query.cost),
     attack: parseCardStat(request.query.attack),
     health: parseCardStat(request.query.health),
+    armor: parseCardStat(request.query.armor),
   };
   const page = parseSearchPage(request.query.page);
   const requestedWordBankIds = parseRequestedWordBankIds(request.query);
@@ -268,7 +270,7 @@ app.get("/api/cards/search", (request, response) => {
     !bank ||
     page === undefined ||
     filters.wordLength === undefined ||
-    [filters.cost, filters.attack, filters.health].includes(undefined)
+    [filters.cost, filters.attack, filters.health, filters.armor].includes(undefined)
   ) {
     response.status(400).json({ error: "卡牌属性筛选值无效" });
     return;
@@ -278,7 +280,8 @@ app.get("/api/cards/search", (request, response) => {
     filters.wordLength === null &&
     filters.cost === null &&
     filters.attack === null &&
-    filters.health === null
+    filters.health === null &&
+    filters.armor === null
   ) {
     response.json({ results: [], total: 0, limit: 40, page: 1, pages: 0 });
     return;
@@ -844,17 +847,6 @@ function formatCostBand(cost) {
   return "7 费以上";
 }
 
-function formatCardStats(card) {
-  if (card.type === "MINION") {
-    return `${card.attack ?? "-"} 攻 / ${card.health ?? "-"} 血`;
-  }
-  if (card.type === "WEAPON") {
-    return `${card.attack ?? "-"} 攻 / ${card.health ?? "-"} 耐久`;
-  }
-  if (card.type === "LOCATION") return `${card.health ?? "-"} 耐久`;
-  return "无攻防属性";
-}
-
 function clueField(key, label, value, source = "hidden") {
   return { key, label, value: value || "待揭示", source };
 }
@@ -873,6 +865,7 @@ function buildRoundClues(room, current, viewerId) {
   const showCostBand = stage === 1 && Boolean(scopedType) && Boolean(scopedRarity);
   const selection = current.answers?.get(viewerId);
   const durationMs = roundDurationMs(room);
+  const attributeClue = getCardAttributeClue(card);
   const selectedScore = selection
     ? calculateScore(
       Math.max(0, current.startedAt + durationMs - selection.selectedAt),
@@ -918,12 +911,14 @@ function buildRoundClues(room, current, viewerId) {
           : showCostBand ? formatCostBand(card.cost) : "",
         stage >= 2 || showCostBand ? "hint" : "hidden",
       ),
-      clueField(
-        "stats",
-        "属性",
-        stage >= 2 ? formatCardStats(card) : "",
-        stage >= 2 ? "hint" : "hidden",
-      ),
+      ...(attributeClue
+        ? [clueField(
+            "stats",
+            attributeClue.label,
+            stage >= 2 ? attributeClue.value : "",
+            stage >= 2 ? "hint" : "hidden",
+          )]
+        : []),
     ],
   };
 }

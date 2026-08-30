@@ -43,6 +43,7 @@ export function loadCardCatalog(filePath, options = {}) {
         wordLength: countWordCharacters(card.name.trim()),
         cost: Number.isFinite(card.cost) ? card.cost : null,
         attack: Number.isFinite(card.attack) ? card.attack : null,
+        armor: Number.isFinite(card.armor) ? card.armor : null,
         health: Number.isFinite(card.health) ? card.health : null,
         type: typeof card.type === "string" ? card.type : "",
         imageUrl: id
@@ -61,6 +62,22 @@ export function loadCardCatalog(filePath, options = {}) {
     }
   }
   return [...canonicalCards.values()];
+}
+
+export function getCardAttributeClue(card) {
+  if (card?.type === "MINION") {
+    return {
+      label: "攻击 / 生命",
+      value: `${card.attack ?? "-"} 攻 / ${card.health ?? "-"} 血`,
+    };
+  }
+  if (card?.type === "HERO") {
+    return { label: "护甲", value: `${card.armor ?? "-"} 点护甲` };
+  }
+  if (card?.type === "WEAPON" || card?.type === "LOCATION") {
+    return { label: "耐久", value: `${card.health ?? "-"} 点耐久` };
+  }
+  return null;
 }
 
 function cardPriority(card) {
@@ -183,13 +200,13 @@ export function buildCardAnswerOptions(cards, answer, count = 10) {
   const same = (card, field) => card[field] === answerCard[field];
   const tiers = [
     (card) =>
-      ["cost", "attack", "health", "cardClass", "rarity"]
+      ["cost", "attack", "health", "armor", "cardClass", "rarity"]
         .every((field) => same(card, field)),
-    (card) => ["cost", "attack", "health"]
+    (card) => ["cost", "attack", "health", "armor"]
       .every((field) => same(card, field)),
     (card) =>
       same(card, "cost") &&
-      (same(card, "attack") || same(card, "health")),
+      (same(card, "attack") || same(card, "health") || same(card, "armor")),
     (card) => same(card, "cost"),
     () => true,
   ];
@@ -218,7 +235,7 @@ export function buildCardAnswerOptions(cards, answer, count = 10) {
 
 export function searchCards(cards, filters, limit = 40, offset = 0) {
   const normalizedName = normalizeGuess(filters?.name ?? "");
-  const statFilters = ["cost", "attack", "health"];
+  const statFilters = ["cost", "attack", "health", "armor"];
   const results = [];
   const seenNames = new Set();
   let total = 0;

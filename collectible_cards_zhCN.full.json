@@ -62,6 +62,7 @@
   {
     "artist": "Matt Dixon",
     "attack": null,
+    "armor": 7,
     "cardClass": "WARRIOR",
     "collectible": true,
     "cost": 7,
@@ -722,6 +723,7 @@
   {
     "artist": "Grafit Studio",
     "attack": null,
+    "armor": 5,
     "cardClass": "",
     "collectible": true,
     "cost": 7,
@@ -2732,6 +2734,7 @@
   {
     "artist": "Wayne Reynolds",
     "attack": null,
+    "armor": 5,
     "cardClass": "PRIEST",
     "collectible": true,
     "cost": 8,
@@ -7502,6 +7505,7 @@
   {
     "artist": "Glenn Rane",
     "attack": null,
+    "armor": 5,
     "cardClass": "MAGE",
     "collectible": true,
     "cost": 9,
@@ -12932,6 +12936,7 @@
   {
     "artist": "James Ryman",
     "attack": null,
+    "armor": 5,
     "cardClass": "",
     "collectible": true,
     "cost": 7,
@@ -18152,6 +18157,7 @@
   {
     "artist": "Konstantin Turovec",
     "attack": null,
+    "armor": 5,
     "cardClass": "SHAMAN",
     "collectible": true,
     "cost": 7,
@@ -21677,6 +21683,7 @@
   {
     "artist": "Mooncolony",
     "attack": null,
+    "armor": 5,
     "cardClass": "NEUTRAL",
     "collectible": true,
     "cost": 8,
@@ -22787,6 +22794,7 @@
   {
     "artist": "Ursula Dorada",
     "attack": null,
+    "armor": 5,
     "cardClass": "PALADIN",
     "collectible": true,
     "cost": 8,
@@ -24947,6 +24955,7 @@
   {
     "artist": "James Ryman",
     "attack": null,
+    "armor": 5,
     "cardClass": "PALADIN",
     "collectible": true,
     "cost": 9,
@@ -27422,6 +27431,7 @@
   {
     "artist": "Konstantin Turovec",
     "attack": null,
+    "armor": 5,
     "cardClass": "PRIEST",
     "collectible": true,
     "cost": 7,
@@ -29837,6 +29847,7 @@
   {
     "artist": "Alex Horley Orlandelli",
     "attack": null,
+    "armor": 5,
     "cardClass": "",
     "collectible": true,
     "cost": 7,
@@ -30497,6 +30508,7 @@
   {
     "artist": "Alex Horley Orlandelli",
     "attack": null,
+    "armor": 5,
     "cardClass": "WARLOCK",
     "collectible": true,
     "cost": 8,
@@ -37082,6 +37094,7 @@
   {
     "artist": "Arthur Gimaldinov",
     "attack": null,
+    "armor": 5,
     "cardClass": "WARLOCK",
     "collectible": true,
     "cost": 6,
@@ -41087,6 +41100,7 @@
   {
     "artist": "Zoltan Boros",
     "attack": null,
+    "armor": 5,
     "cardClass": "DEMONHUNTER",
     "collectible": true,
     "cost": 6,
@@ -44837,6 +44851,7 @@
   {
     "artist": "Konstantin Turovec",
     "attack": null,
+    "armor": 5,
     "cardClass": "ROGUE",
     "collectible": true,
     "cost": 7,
@@ -45722,6 +45737,7 @@
   {
     "artist": "Alex Horley Orlandelli",
     "attack": null,
+    "armor": 12,
     "cardClass": "",
     "collectible": true,
     "cost": 10,
@@ -46202,6 +46218,7 @@
   {
     "artist": "Arthur Bozonnet",
     "attack": null,
+    "armor": 5,
     "cardClass": "MAGE",
     "collectible": true,
     "cost": 7,
@@ -49772,6 +49789,7 @@
   {
     "artist": "Alex Horley Orlandelli",
     "attack": null,
+    "armor": 5,
     "cardClass": "SHAMAN",
     "collectible": true,
     "cost": 8,
@@ -52112,6 +52130,7 @@
   {
     "artist": "James Ryman",
     "attack": null,
+    "armor": 5,
     "cardClass": "PRIEST",
     "collectible": true,
     "cost": 8,
@@ -57152,6 +57171,7 @@
   {
     "artist": "Konstantin Turovec",
     "attack": null,
+    "armor": 5,
     "cardClass": "MAGE",
     "collectible": true,
     "cost": 10,
@@ -59222,6 +59242,7 @@
   {
     "artist": "Kevin Sidharta",
     "attack": null,
+    "armor": 8,
     "cardClass": "SHAMAN",
     "collectible": true,
     "cost": 7,
@@ -62852,6 +62873,7 @@
   {
     "artist": "Jomaro Kindred",
     "attack": null,
+    "armor": 5,
     "cardClass": "HUNTER",
     "collectible": true,
     "cost": 6,
@@ -62957,6 +62979,7 @@
   {
     "artist": "Jerry Mascho",
     "attack": null,
+    "armor": 5,
     "cardClass": "SHAMAN",
     "collectible": true,
     "cost": 5,
@@ -65087,6 +65110,7 @@
   {
     "artist": "Greg Staples",
     "attack": null,
+    "armor": 5,
     "cardClass": "WARRIOR",
     "collectible": true,
     "cost": 8,
@@ -69137,6 +69161,7 @@
   {
     "artist": "Alex Horley Orlandelli",
     "attack": null,
+    "armor": 5,
     "cardClass": "DRUID",
     "collectible": true,
     "cost": 7,
@@ -69452,6 +69477,7 @@
   {
     "artist": "Konstantin Turovec",
     "attack": null,
+    "armor": 5,
     "cardClass": "WARRIOR",
     "collectible": true,
     "cost": 7,
@@ -69827,6 +69853,7 @@
   {
     "artist": "Grafit Studio",
     "attack": null,
+    "armor": 5,
     "cardClass": "DEATHKNIGHT",
     "collectible": true,
     "cost": 6,
@@ -71132,6 +71159,7 @@
   {
     "artist": "Alex Horley Orlandelli",
     "attack": null,
+    "armor": 5,
     "cardClass": "WARLOCK",
     "collectible": true,
     "cost": 10,
@@ -72617,6 +72645,7 @@
   {
     "artist": "Konstantin Turovec",
     "attack": null,
+    "armor": 5,
     "cardClass": "WARLOCK",
     "collectible": true,
     "cost": 7,
@@ -75197,6 +75226,7 @@
   {
     "artist": "James Ryman",
     "attack": null,
+    "armor": 5,
     "cardClass": "ROGUE",
     "collectible": true,
     "cost": 9,
@@ -76832,6 +76862,7 @@
   {
     "artist": "Ivan Fomin",
     "attack": null,
+    "armor": 5,
     "cardClass": "ROGUE",
     "collectible": true,
     "cost": 8,
@@ -78332,6 +78363,7 @@
   {
     "artist": "Jim Nelson",
     "attack": null,
+    "armor": 5,
     "cardClass": "HUNTER",
     "collectible": true,
     "cost": 6,
@@ -78467,6 +78499,7 @@
   {
     "artist": "Paul Mafayon",
     "attack": null,
+    "armor": 5,
     "cardClass": "DRUID",
     "collectible": true,
     "cost": 5,
@@ -81272,6 +81305,7 @@
   {
     "artist": "Rafael Zanchetin",
     "attack": null,
+    "armor": 10,
     "cardClass": "WARRIOR",
     "collectible": true,
     "cost": 7,
@@ -82982,6 +83016,7 @@
   {
     "artist": "Alex Horley Orlandelli",
     "attack": null,
+    "armor": 5,
     "cardClass": "SHAMAN",
     "collectible": true,
     "cost": 8,
@@ -89312,6 +89347,7 @@
   {
     "artist": "Alex Horley Orlandelli",
     "attack": null,
+    "armor": 5,
     "cardClass": "HUNTER",
     "collectible": true,
     "cost": 10,

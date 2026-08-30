@@ -78,11 +78,13 @@ function validCardIdentity({ collectible, id, name, rarity, type }) {
 }
 
 function normalizeBugstoneCard(card) {
+  const armor = tagValue(card, "ARMOR");
   const normalized = {
     _hasSourceImage: Number.isFinite(card.dbfid) &&
       fs.existsSync(path.join(sourceImageDir, `${card.dbfid}.png`)),
     artist: String(card.artist_name ?? "").trim(),
     attack: tagValue(card, "ATK"),
+    ...(Number.isFinite(armor) ? { armor } : {}),
     cardClass: card.card_classes?.[0]?.name ?? "",
     collectible: card.collectible === 1 && card.tech_level === 0,
     cost: Number.isFinite(card.cost) ? card.cost : null,
@@ -103,6 +105,7 @@ function normalizeHearthstoneJsonCard(card) {
     _hasSourceImage: false,
     artist: String(card.artist ?? "").trim(),
     attack: Number.isFinite(card.attack) ? card.attack : null,
+    ...(Number.isFinite(card.armor) ? { armor: card.armor } : {}),
     cardClass: String(card.cardClass ?? ""),
     collectible: card.collectible === true && card.set !== "HERO_SKINS",
     cost: Number.isFinite(card.cost) ? card.cost : null,
@@ -166,6 +169,7 @@ function renderChanged(previous, current) {
   if (!previous || previous.id !== current.id) return true;
   return previous.cost !== current.cost ||
     previous.attack !== current.attack ||
+    previous.armor !== current.armor ||
     previous.health !== current.health ||
     comparableText(previous.text) !== comparableText(current.text);
 }

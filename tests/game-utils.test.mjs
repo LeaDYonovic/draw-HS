@@ -9,6 +9,7 @@ import {
   calculateScore,
   countWordCharacters,
   getHintStage,
+  getCardAttributeClue,
   getChoiceEligibleCards,
   getChoiceEligibleWords,
   loadCardCatalog,
@@ -65,6 +66,26 @@ test("masks words and keeps score inside the expected range", () => {
   assert.equal(getHintStage(36_001, 60_000), 0);
   assert.equal(getHintStage(36_000, 60_000), 1);
   assert.equal(getHintStage(18_000, 60_000), 2);
+});
+
+test("uses type-specific card attributes for staged clues", () => {
+  assert.deepEqual(
+    getCardAttributeClue({ type: "MINION", attack: 3, health: 4 }),
+    { label: "攻击 / 生命", value: "3 攻 / 4 血" },
+  );
+  assert.deepEqual(
+    getCardAttributeClue({ type: "HERO", armor: 7, health: 30 }),
+    { label: "护甲", value: "7 点护甲" },
+  );
+  assert.deepEqual(
+    getCardAttributeClue({ type: "WEAPON", attack: 5, health: 2 }),
+    { label: "耐久", value: "2 点耐久" },
+  );
+  assert.deepEqual(
+    getCardAttributeClue({ type: "LOCATION", health: 3 }),
+    { label: "耐久", value: "3 点耐久" },
+  );
+  assert.equal(getCardAttributeClue({ type: "SPELL" }), null);
 });
 
 test("picks distinct words while respecting recent exclusions", () => {
@@ -193,6 +214,10 @@ test("searches card JSON by name and exact combat stats without duplicate names"
   assert.equal(crystalspineCub.health, 1);
   assert.equal(crystalspineCub.wordLength, 4);
   assert.equal(crystalspineCub.imageUrl, "/api/cards/images/CATA_130.png");
+  assert.equal(
+    cards.find((card) => card.name === "“科学狂人”砰砰博士").armor,
+    7,
+  );
 
   const versionedCards = loadCardCatalog(
     path.join(root, "collectible_cards_zhCN.full.json"),

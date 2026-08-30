@@ -158,7 +158,10 @@ async function startRound(t, answerMode, settings = {}) {
   assert.equal(drawing.round.clues.range, drawing.wordBankName);
   assert.equal(drawing.round.clues.scoreBand.maximum, 100);
   assert.equal(drawing.round.clues.scoreBand.minimum, 80);
-  assert.equal(drawing.round.clues.fields.length, 6);
+  assert.equal(
+    drawing.round.clues.fields.length,
+    choosing.round.optionCards[0].type === "SPELL" ? 5 : 6,
+  );
   assert.equal(
     drawing.round.clues.fields.find((field) => field.key === "length").source,
     "base",
@@ -326,6 +329,12 @@ test("a search answer can be filtered, selected, and changed before timeout", as
       false,
     );
   }
+
+  const armorResponse = await fetch(`${url}/api/cards/search?armor=7&wordBanks=hero`);
+  const armorData = await armorResponse.json();
+  assert.equal(armorResponse.ok, true);
+  assert.ok(armorData.results.length > 0);
+  assert.ok(armorData.results.every((card) => card.armor === 7));
 
   const wrongAnswer = answer === "霜之哀伤" ? "海拉" : "霜之哀伤";
   const firstChoice = await emitAck(guest, "select_search_answer", {

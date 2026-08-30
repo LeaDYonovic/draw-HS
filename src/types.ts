@@ -162,6 +162,7 @@ export interface CardSearchResult {
   cost: number | null;
   attack: number | null;
   health: number | null;
+  armor: number | null;
   type: string;
   imageUrl: string;
 }

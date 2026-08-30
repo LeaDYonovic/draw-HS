@@ -1101,6 +1101,7 @@ interface SearchFilters {
   cost: string;
   attack: string;
   health: string;
+  armor: string;
 }
 
 const EMPTY_SEARCH_FILTERS: SearchFilters = {
@@ -1109,7 +1110,20 @@ const EMPTY_SEARCH_FILTERS: SearchFilters = {
   cost: "",
   attack: "",
   health: "",
+  armor: "",
 };
+
+function formatCardSearchSummary(card: CardSearchResult) {
+  const details = [`字数 ${card.wordLength}`, `费用 ${card.cost ?? "-"}`];
+  if (card.type === "MINION") {
+    details.push(`攻击 ${card.attack ?? "-"}`, `生命 ${card.health ?? "-"}`);
+  } else if (card.type === "HERO") {
+    details.push(`护甲 ${card.armor ?? "-"}`);
+  } else if (card.type === "WEAPON" || card.type === "LOCATION") {
+    details.push(`耐久 ${card.health ?? "-"}`);
+  }
+  return details.join(" · ");
+}
 
 function SearchAnswerPanel({
   round,
@@ -1211,7 +1225,8 @@ function SearchAnswerPanel({
             ["wordLength", "字数"],
             ["cost", "费用"],
             ["attack", "攻击"],
-            ["health", "生命"],
+            ["health", "生命/耐久"],
+            ["armor", "护甲"],
           ] as const).map(([field, label]) => (
             <label key={field}>
               <span>{label}</span>
@@ -1246,9 +1261,7 @@ function SearchAnswerPanel({
                 <CardImage card={card} className="search-card-visual" />
                 <div>
                   <strong>{card.name}</strong>
-                  <span>
-                    字数 {card.wordLength} · 费用 {card.cost ?? "-"} · 攻击 {card.attack ?? "-"} · 生命 {card.health ?? "-"}
-                  </span>
+                  <span>{formatCardSearchSummary(card)}</span>
                 </div>
                 <button
                   aria-pressed={selectedName === card.name}
