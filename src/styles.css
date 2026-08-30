@@ -72,6 +72,57 @@ select:focus-visible {
     linear-gradient(145deg, #153d47 0%, #0d2933 45%, #081a23 100%);
 }
 
+.scaled-viewport {
+  position: relative;
+  min-height: 100vh;
+  transform-origin: top left;
+  zoom: var(--page-scale);
+}
+
+.page-scale-control {
+  position: fixed;
+  z-index: 130;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  padding: 4px;
+  display: grid;
+  grid-template-columns: 34px 52px 34px;
+  gap: 3px;
+  border: 1px solid rgba(230, 199, 133, 0.38);
+  border-radius: 10px;
+  background: rgba(7, 28, 35, 0.9);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(10px);
+}
+
+.page-scale-control button {
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: #f4e6c4;
+  background: rgba(244, 230, 196, 0.08);
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.page-scale-control button:hover:not(:disabled) {
+  color: #fff3c7;
+  background: rgba(55, 135, 138, 0.46);
+}
+
+.page-scale-control button:disabled {
+  cursor: not-allowed;
+  opacity: 0.32;
+}
+
+.page-scale-control .page-scale-value {
+  color: #f1cb6d;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
 .app-shell::before {
   content: "";
   position: fixed;

@@ -15,6 +15,8 @@ import type {
 
 const SESSION_KEY = "hearth-draw-session";
 const NAME_KEY = "hearth-draw-name";
+const PAGE_SCALE_KEY = "hearth-draw-page-scale";
+const PAGE_SCALE_STEPS = [80, 90, 100, 110, 120] as const;
 const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家通过选择或搜索卡牌作答。";
 const CARD_TYPE_LABELS: Record<string, string> = {
   MINION: "随从",
@@ -48,12 +50,19 @@ function clearSession() {
   window.history.replaceState({}, "", window.location.pathname);
 }
 
+function readPageScale() {
+  const saved = Number(localStorage.getItem(PAGE_SCALE_KEY));
+  if (PAGE_SCALE_STEPS.includes(saved as (typeof PAGE_SCALE_STEPS)[number])) return saved;
+  return window.innerWidth > 760 && window.innerHeight < 960 ? 90 : 100;
+}
+
 export function App() {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [lobby, setLobby] = useState<LobbyState>({ players: [], rooms: [], messages: [] });
   const [lobbyName, setLobbyName] = useState("");
   const lobbyNameRef = useRef("");
   const [connected, setConnected] = useState(socket.connected);
+  const [pageScale, setPageScale] = useState(readPageScale);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -151,37 +160,81 @@ export function App() {
     setRoom(null);
   };
 
+  const changePageScale = (nextScale: number) => {
+    if (!PAGE_SCALE_STEPS.includes(nextScale as (typeof PAGE_SCALE_STEPS)[number])) return;
+    localStorage.setItem(PAGE_SCALE_KEY, String(nextScale));
+    setPageScale(nextScale);
+  };
+
+  const scale = pageScale / 100;
+  const scaledViewportStyle = {
+    "--page-scale": scale,
+  } as React.CSSProperties;
+
   return (
     <main className="app-shell">
       <div className="ambient-glow glow-one" />
       <div className="ambient-glow glow-two" />
-      {room ? (
-        room.phase === "lobby" ? (
-          <RoomLobby
+      <div className="scaled-viewport" style={scaledViewportStyle}>
+        {room ? (
+          room.phase === "lobby" ? (
+            <RoomLobby
+              onError={showError}
+              onLeave={leaveRoom}
+              onToast={setToast}
+              room={room}
+            />
+          ) : room.phase === "gameOver" ? (
+            <GameOver onError={showError} onLeave={leaveRoom} room={room} />
+          ) : (
+            <GameRoom onError={showError} onLeave={leaveRoom} room={room} />
+          )
+        ) : lobbyName ? (
+          <GameLobby
+            connected={connected}
+            lobby={lobby}
+            name={lobbyName}
             onError={showError}
-            onLeave={leaveRoom}
-            onToast={setToast}
-            room={room}
+            onLeave={leaveLobby}
           />
-        ) : room.phase === "gameOver" ? (
-          <GameOver onError={showError} onLeave={leaveRoom} room={room} />
         ) : (
-          <GameRoom onError={showError} onLeave={leaveRoom} room={room} />
-        )
-      ) : lobbyName ? (
-        <GameLobby
-          connected={connected}
-          lobby={lobby}
-          name={lobbyName}
-          onError={showError}
-          onLeave={leaveLobby}
-        />
-      ) : (
-        <Home connected={connected} onEnter={enterLobby} />
-      )}
-      {!connected && <div className="connection-banner">正在重新连接酒馆...</div>}
-      {toast && <div className="toast">{toast}</div>}
+          <Home connected={connected} onEnter={enterLobby} />
+        )}
+        {!connected && <div className="connection-banner">正在重新连接酒馆...</div>}
+        {toast && <div className="toast">{toast}</div>}
+      </div>
+      <PageScaleControl onChange={changePageScale} scale={pageScale} />
     </main>
+  );
+}
+
+function PageScaleControl({ onChange, scale }: { onChange: (scale: number) => void; scale: number }) {
+  const index = PAGE_SCALE_STEPS.indexOf(scale as (typeof PAGE_SCALE_STEPS)[number]);
+
+  return (
+    <div aria-label="页面缩放" className="page-scale-control" role="group">
+      <button
+        aria-label="缩小页面"
+        disabled={index <= 0}
+        onClick={() => onChange(PAGE_SCALE_STEPS[index - 1])}
+        title="缩小页面"
+        type="button"
+      >
+        −
+      </button>
+      <button aria-label={`当前缩放 ${scale}%，点击恢复 100%`} className="page-scale-value" onClick={() => onChange(100)} title="恢复 100%" type="button">
+        {scale}%
+      </button>
+      <button
+        aria-label="放大页面"
+        disabled={index >= PAGE_SCALE_STEPS.length - 1}
+        onClick={() => onChange(PAGE_SCALE_STEPS[index + 1])}
+        title="放大页面"
+        type="button"
+      >
+        +
+      </button>
+    </div>
   );
 }
 
