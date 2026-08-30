@@ -1220,7 +1220,7 @@ function GameOver({
   onError: (message?: string) => void;
 }) {
   const ranking = room.players
-    .filter((player) => !player.isSpectator)
+    .filter((player) => !player.isSpectator && !player.isBot)
     .sort((a, b) => b.score - a.score);
 
   const restart = async () => {

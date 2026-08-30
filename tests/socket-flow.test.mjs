@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { io as createClient } from "socket.io-client";
@@ -351,7 +353,10 @@ test("a solo host can start with an AI player that chooses and answers automatic
   assert.equal(soloLobby.players.length, 1);
   assert.equal(soloLobby.canStart, true);
 
-  await emitAck(host, "update_settings", { answerMode: "choice" });
+  await emitAck(host, "update_settings", {
+    answerMode: "choice",
+    roundsPerPlayer: 1,
+  });
   const started = await emitAck(host, "start_game");
   assert.equal(started.ok, true);
   const choosing = await hostState.waitFor((state) => state.phase === "choosing");
@@ -360,7 +365,7 @@ test("a solo host can start with an AI player that chooses and answers automatic
   assert.equal(bot.name, "旅店老板 AI");
   assert.equal(bot.score, 0);
   assert.equal(choosing.players.length, 2);
-  assert.equal(choosing.round.totalTurns, 4);
+  assert.equal(choosing.round.totalTurns, 2);
   assert.equal(choosing.isDrawer, true);
 
   await emitAck(host, "choose_word", { word: choosing.round.options[0] });
@@ -385,6 +390,8 @@ test("a solo host can start with an AI player that chooses and answers automatic
       message.text.includes("AI 测试回合不会生成画作"),
     ),
   );
+  const gameOver = await hostState.waitFor((state) => state.phase === "gameOver", 3_000);
+  assert.equal(gameOver.players.find((player) => player.isBot).score, 0);
 });
 
 test("the public lobby lists players and keeps lobby chat separate from room chat", async (t) => {
@@ -758,4 +765,169 @@ test("a spectator can watch a running room and join from the next round at zero 
     updatedListing.rooms.find((room) => room.code === created.roomCode).status,
     "playing",
   );
+
+  const controllers = new Map([
+    [hostChoosing.selfId, { socket: host, state: hostState }],
+    [guestChoosing.selfId, { socket: guest, state: guestState }],
+    [promoted.selfId, { socket: spectator, state: spectatorState }],
+  ]);
+  const drawerOrder = [hostChoosing.round.drawerId];
+  let turnState = promoted;
+  while (turnState.phase === "choosing") {
+    const turn = turnState.round.turn;
+    const controller = controllers.get(turnState.round.drawerId);
+    assert.ok(controller);
+    drawerOrder.push(turnState.round.drawerId);
+    const drawerView = await controller.state.waitFor(
+      (state) => state.phase === "choosing" && state.round.key === turnState.round.key,
+    );
+    const chosen = await emitAck(controller.socket, "choose_word", {
+      word: drawerView.round.options[0],
+    });
+    assert.equal(chosen.ok, true);
+    turnState = await spectatorState.waitFor(
+      (state) =>
+        state.phase === "gameOver" ||
+        (state.phase === "choosing" && state.round.turn > turn),
+      5_000,
+    );
+  }
+  assert.deepEqual(drawerOrder, [
+    hostChoosing.selfId,
+    guestChoosing.selfId,
+    promoted.selfId,
+    hostChoosing.selfId,
+    guestChoosing.selfId,
+    promoted.selfId,
+  ]);
+});
+
+test("a reconnecting player keeps their nickname and resumes atomically", async (t) => {
+  const port = await getFreePort();
+  const url = `http://127.0.0.1:${port}`;
+  let childLogs = "";
+  const child = spawn(process.execPath, [path.join(root, "server", "index.mjs")], {
+    cwd: root,
+    env: { ...process.env, PORT: String(port) },
+    stdio: "pipe",
+  });
+  child.stdout.on("data", (chunk) => { childLogs += chunk; });
+  child.stderr.on("data", (chunk) => { childLogs += chunk; });
+  t.after(() => child.kill());
+  await waitForServer(url, child, () => childLogs);
+
+  const original = createClient(url, { transports: ["websocket"], forceNew: true });
+  const squatter = createClient(url, { transports: ["websocket"], forceNew: true });
+  const resumed = createClient(url, { transports: ["websocket"], forceNew: true });
+  t.after(() => {
+    original.disconnect();
+    squatter.disconnect();
+    resumed.disconnect();
+  });
+
+  const created = await emitAck(original, "create_room", {
+    name: "重连保留昵称",
+    roomName: "重连原子性测试",
+  });
+  assert.equal(created.ok, true);
+  original.disconnect();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  const occupied = await emitAck(squatter, "join_lobby", { name: "重连保留昵称" });
+  assert.equal(occupied.ok, false);
+  assert.match(occupied.error, /昵称/u);
+
+  const restored = await emitAck(resumed, "resume_session", {
+    roomCode: created.roomCode,
+    playerToken: created.playerToken,
+  });
+  assert.equal(restored.ok, true);
+  const hostMutation = await emitAck(resumed, "update_settings", { roundTime: 90 });
+  assert.equal(hostMutation.ok, true);
+});
+
+test("socket origins, lobby membership, and direct-client IP limits are enforced", async (t) => {
+  const port = await getFreePort();
+  const url = `http://127.0.0.1:${port}`;
+  let childLogs = "";
+  const child = spawn(process.execPath, [path.join(root, "server", "index.mjs")], {
+    cwd: root,
+    env: { ...process.env, PORT: String(port), TRUST_PROXY_HEADERS: "false" },
+    stdio: "pipe",
+  });
+  child.stdout.on("data", (chunk) => { childLogs += chunk; });
+  child.stderr.on("data", (chunk) => { childLogs += chunk; });
+  t.after(() => child.kill());
+  await waitForServer(url, child, () => childLogs);
+
+  const rejected = createClient(url, {
+    transports: ["websocket"],
+    forceNew: true,
+    reconnection: false,
+    extraHeaders: { Origin: "https://untrusted.example" },
+  });
+  t.after(() => rejected.disconnect());
+  const originError = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("untrusted origin was not rejected")), 2_000);
+    rejected.once("connect", () => {
+      clearTimeout(timer);
+      reject(new Error("untrusted origin connected"));
+    });
+    rejected.once("connect_error", (error) => {
+      clearTimeout(timer);
+      resolve(error);
+    });
+  });
+  assert.ok(originError instanceof Error);
+
+  const trusted = createClient(url, {
+    transports: ["websocket"],
+    forceNew: true,
+    extraHeaders: { Origin: url },
+  });
+  t.after(() => trusted.disconnect());
+  let lastMembershipResponse = null;
+  for (let attempt = 0; attempt < 9; attempt += 1) {
+    lastMembershipResponse = await emitAck(trusted, "join_lobby", {
+      name: "大厅限频测试",
+    });
+  }
+  assert.equal(lastMembershipResponse.ok, false);
+  assert.match(lastMembershipResponse.error, /频繁/u);
+
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const response = await fetch(`${url}/api/cards/search`, {
+      headers: { "x-forwarded-for": "198.51.100.10" },
+    });
+    assert.equal(response.status, 200);
+  }
+  const spoofedAddress = await fetch(`${url}/api/cards/search`, {
+    headers: { "x-forwarded-for": "198.51.100.11" },
+  });
+  assert.equal(spoofedAddress.status, 429);
+});
+
+test("cached card images do not consume the upstream fetch allowance", async (t) => {
+  const imageDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "hearth-draw-images-"));
+  await fs.writeFile(path.join(imageDirectory, "AV_204.png"), Buffer.alloc(1_024, 1));
+  t.after(() => fs.rm(imageDirectory, { force: true, recursive: true }));
+
+  const port = await getFreePort();
+  const url = `http://127.0.0.1:${port}`;
+  let childLogs = "";
+  const child = spawn(process.execPath, [path.join(root, "server", "index.mjs")], {
+    cwd: root,
+    env: { ...process.env, PORT: String(port), CARD_IMAGE_DIR: imageDirectory },
+    stdio: "pipe",
+  });
+  child.stdout.on("data", (chunk) => { childLogs += chunk; });
+  child.stderr.on("data", (chunk) => { childLogs += chunk; });
+  t.after(() => child.kill());
+  await waitForServer(url, child, () => childLogs);
+
+  for (let attempt = 0; attempt < 250; attempt += 1) {
+    const response = await fetch(`${url}/api/cards/images/AV_204.png`);
+    assert.equal(response.status, 200);
+    await response.arrayBuffer();
+  }
 });

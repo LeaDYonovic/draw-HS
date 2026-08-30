@@ -58,6 +58,29 @@ const MAX_IMAGE_FETCHES = Math.max(
   1,
   Math.min(12, Number(process.env.MAX_IMAGE_FETCHES) || 4),
 );
+const MAX_IMAGE_FETCH_QUEUE = Math.max(
+  10,
+  Math.min(500, Number(process.env.MAX_IMAGE_FETCH_QUEUE) || 100),
+);
+const TRUST_PROXY_HEADERS = /^(1|true|yes)$/iu.test(
+  String(process.env.TRUST_PROXY_HEADERS ?? ""),
+);
+const TRUSTED_PROXY_ADDRESSES = new Set(
+  String(process.env.TRUSTED_PROXY_ADDRESSES || "127.0.0.1,::1")
+    .split(",")
+    .map((address) => normalizeAddress(address))
+    .filter(Boolean),
+);
+const ALLOWED_ORIGINS = new Set(
+  String(process.env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/$/u, ""))
+    .filter(Boolean),
+);
+if (process.env.NODE_ENV !== "production") {
+  ALLOWED_ORIGINS.add("http://localhost:5173");
+  ALLOWED_ORIGINS.add("http://127.0.0.1:5173");
+}
 const ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家通过选择或搜索卡牌作答。";
 const CARD_IMAGE_SOURCE =
@@ -69,6 +92,7 @@ const pendingCardImages = new Map();
 const rateWindows = new Map();
 const imageFetchQueue = [];
 let activeImageFetches = 0;
+let lobbyEmitTimer = null;
 
 const rateWindowCleanup = setInterval(() => {
   const now = Date.now();
@@ -81,8 +105,17 @@ rateWindowCleanup.unref();
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
+  allowRequest: (request, callback) => callback(null, socketOriginAllowed(request)),
   maxHttpBufferSize: 100_000,
   pingTimeout: 20_000,
+});
+
+io.use((socket, next) => {
+  if (socketAddressRateLimited(socket, "connection", 40, 60_000)) {
+    next(new Error("连接过于频繁，请稍后再试"));
+    return;
+  }
+  next();
 });
 
 app.disable("x-powered-by");
@@ -142,10 +175,6 @@ app.get("/api/cards/search", (request, response) => {
   });
 });
 app.get("/api/cards/images/:fileName", async (request, response) => {
-  if (httpRateLimited(request, "card-image", 240, 60_000)) {
-    response.status(429).end();
-    return;
-  }
   const cardId = String(request.params.fileName ?? "").replace(/\.png$/iu, "");
   if (!/^[-A-Z0-9_]+$/iu.test(cardId) || !cardIds.has(cardId)) {
     response.status(404).end();
@@ -153,6 +182,13 @@ app.get("/api/cards/images/:fileName", async (request, response) => {
   }
 
   const imagePath = path.join(cardImageDir, `${cardId}.png`);
+  if (
+    !fs.existsSync(imagePath) &&
+    httpRateLimited(request, "card-image-fetch", 240, 60_000)
+  ) {
+    response.status(429).end();
+    return;
+  }
   try {
     await ensureCardImage(cardId, imagePath);
     response.set("Cache-Control", "public, max-age=604800, immutable");
@@ -251,16 +287,40 @@ function parseSearchPage(value) {
     : undefined;
 }
 
+function normalizeAddress(value) {
+  const address = String(value ?? "").trim();
+  return address.startsWith("::ffff:") ? address.slice(7) : address;
+}
+
 function clientAddress(headers, fallback = "unknown") {
+  const remoteAddress = normalizeAddress(fallback) || "unknown";
+  if (!TRUST_PROXY_HEADERS || !TRUSTED_PROXY_ADDRESSES.has(remoteAddress)) {
+    return remoteAddress;
+  }
+
   const cloudflareAddress = headers?.["cf-connecting-ip"];
   if (typeof cloudflareAddress === "string" && cloudflareAddress.trim()) {
-    return cloudflareAddress.trim();
+    return normalizeAddress(cloudflareAddress);
   }
   const forwardedAddress = headers?.["x-forwarded-for"];
   if (typeof forwardedAddress === "string" && forwardedAddress.trim()) {
-    return forwardedAddress.split(",")[0].trim();
+    return normalizeAddress(forwardedAddress.split(",")[0]);
   }
-  return String(fallback || "unknown");
+  return remoteAddress;
+}
+
+function socketOriginAllowed(request) {
+  const origin = String(request.headers.origin ?? "").trim().replace(/\/$/u, "");
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+
+  try {
+    const originHost = new URL(origin).host.toLowerCase();
+    const requestHost = String(request.headers.host ?? "").trim().toLowerCase();
+    return Boolean(requestHost) && originHost === requestHost;
+  } catch {
+    return false;
+  }
 }
 
 function fixedWindowLimited(key, limit, windowMs) {
@@ -310,16 +370,44 @@ function createPlayer(
   };
 }
 
-function registerOnlinePlayer(socket, value) {
+function reconnectingPlayerUsesName(name, allowedPlayerId = null) {
+  const normalizedName = normalizeGuess(name);
+  for (const room of rooms.values()) {
+    for (const player of room.players.values()) {
+      if (
+        player.id !== allowedPlayerId &&
+        !player.left &&
+        !player.connected &&
+        !player.isBot &&
+        normalizeGuess(player.name) === normalizedName
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function registerOnlinePlayer(
+  socket,
+  value,
+  { allowedSocketId = null, allowedPlayerId = null } = {},
+) {
   const name = cleanName(value);
   if (!name) return { ok: false, error: "请先取一个昵称" };
 
   const duplicate = [...onlinePlayers.entries()].some(
     ([socketId, player]) =>
       socketId !== socket.id &&
+      socketId !== allowedSocketId &&
       normalizeGuess(player.name) === normalizeGuess(name),
   );
-  if (duplicate) return { ok: false, error: "这个昵称已有在线玩家使用" };
+  if (
+    duplicate ||
+    reconnectingPlayerUsesName(name, allowedPlayerId)
+  ) {
+    return { ok: false, error: "这个昵称已有在线玩家使用" };
+  }
 
   const existing = onlinePlayers.get(socket.id);
   onlinePlayers.set(socket.id, {
@@ -328,7 +416,11 @@ function registerOnlinePlayer(socket, value) {
     joinedAt: existing?.joinedAt ?? Date.now(),
   });
   socket.data.lobbyName = name;
-  return { ok: true, name };
+  return {
+    ok: true,
+    name,
+    changed: !existing || normalizeGuess(existing.name) !== normalizeGuess(name),
+  };
 }
 
 function resolveOnlineName(socket, value) {
@@ -390,7 +482,12 @@ function lobbyState() {
 }
 
 function emitLobbyState() {
-  io.emit("lobby_state", lobbyState());
+  if (lobbyEmitTimer) return;
+  lobbyEmitTimer = setTimeout(() => {
+    lobbyEmitTimer = null;
+    io.emit("lobby_state", lobbyState());
+  }, 25);
+  lobbyEmitTimer.unref();
 }
 
 function pushLobbyMessage(player, text) {
@@ -537,6 +634,9 @@ function roundDurationMs(room) {
 
 async function withImageFetchSlot(task) {
   if (activeImageFetches >= MAX_IMAGE_FETCHES) {
+    if (imageFetchQueue.length >= MAX_IMAGE_FETCH_QUEUE) {
+      throw new Error("卡牌图片回源队列已满");
+    }
     await new Promise((resolve) => imageFetchQueue.push(resolve));
   }
   activeImageFetches += 1;
@@ -681,7 +781,7 @@ function publicState(room, viewerId) {
     canJoinNextRound:
       isSpectator &&
       !viewer?.joinNextRound &&
-      ["choosing", "drawing", "roundEnd"].includes(room.phase) &&
+      hasFutureTurn(room) &&
       seatedPlayers(room).length + seatedSpectators(room).filter(
         (spectator) => spectator.joinNextRound,
       ).length < room.settings.maxPlayers,
@@ -720,6 +820,13 @@ function finishGame(room, message = "本局结束，看看谁是酒馆里的画�
   emitState(room);
 }
 
+function hasFutureTurn(room) {
+  return (
+    ["choosing", "drawing", "roundEnd"].includes(room.phase) &&
+    room.turnIndex + 1 < room.totalTurns
+  );
+}
+
 function promoteQueuedSpectators(room) {
   const availableSeats = Math.max(
     0,
@@ -731,13 +838,28 @@ function promoteQueuedSpectators(room) {
     .slice(0, availableSeats);
 
   for (const spectator of queued) {
+    const previousRoundSize = room.startOrder.length;
+    const joinedCycle = Math.min(
+      room.settings.roundsPerPlayer - 1,
+      Math.floor(room.turnIndex / Math.max(1, previousRoundSize)),
+    );
     spectator.isSpectator = false;
     spectator.joinNextRound = false;
     spectator.joinQueuedAt = null;
     spectator.score = 0;
     room.startOrder.push(spectator.id);
-    for (let round = 0; round < room.settings.roundsPerPlayer; round += 1) {
-      room.turnOrder.push(spectator.id);
+    let insertedTurns = 0;
+    for (
+      let cycle = joinedCycle;
+      cycle < room.settings.roundsPerPlayer;
+      cycle += 1
+    ) {
+      const cycleEnd = Math.min(
+        room.turnOrder.length,
+        (cycle + 1) * previousRoundSize + insertedTurns,
+      );
+      room.turnOrder.splice(cycleEnd, 0, spectator.id);
+      insertedTurns += 1;
     }
     addSystemMessage(room, `${spectator.name} 从本轮起加入游戏，积分从 0 开始。`);
   }
@@ -899,10 +1021,12 @@ function settleAnswers(room) {
 
     const remaining = Math.max(0, current.endsAt - selection.selectedAt);
     const score = calculateScore(remaining, durationMs);
-    player.score += score;
+    if (!player.isBot) player.score += score;
     current.correctPlayers.add(player.id);
     correctPlayers.push(player.name);
-    if (drawer) drawer.score += Math.max(25, Math.round(score * 0.25));
+    if (drawer && !drawer.isBot) {
+      drawer.score += Math.max(25, Math.round(score * 0.25));
+    }
   }
 
   addSystemMessage(
@@ -1026,24 +1150,32 @@ io.on("connection", (socket) => {
   socket.emit("lobby_state", lobbyState());
 
   socket.on("join_lobby", (payload, callback) => {
+    if (socketRateLimited(socket, "lobby-membership", 8, 10_000)) {
+      respond(callback, { ok: false, error: "大厅操作过于频繁，请稍后再试" });
+      return;
+    }
     if (socket.data.roomCode) {
       respond(callback, { ok: false, error: "请先离开当前房间" });
       return;
     }
     const registered = registerOnlinePlayer(socket, payload?.name);
     respond(callback, registered);
-    if (registered.ok) emitLobbyState();
+    if (registered.ok && registered.changed) emitLobbyState();
   });
 
   socket.on("leave_lobby", (_payload, callback) => {
+    if (socketRateLimited(socket, "lobby-membership", 8, 10_000)) {
+      respond(callback, { ok: false, error: "大厅操作过于频繁，请稍后再试" });
+      return;
+    }
     if (socket.data.roomCode) {
       respond(callback, { ok: false, error: "请先离开当前房间" });
       return;
     }
-    onlinePlayers.delete(socket.id);
+    const removed = onlinePlayers.delete(socket.id);
     socket.data.lobbyName = null;
     respond(callback, { ok: true });
-    emitLobbyState();
+    if (removed) emitLobbyState();
   });
 
   socket.on("send_lobby_chat", (payload, callback) => {
@@ -1175,7 +1307,7 @@ io.on("connection", (socket) => {
       respond(callback, { ok: false, error: "只有围观者可以申请中途加入" });
       return;
     }
-    if (!["choosing", "drawing", "roundEnd"].includes(context.room.phase)) {
+    if (!hasFutureTurn(context.room)) {
       respond(callback, { ok: false, error: "当前没有可加入的下一轮" });
       return;
     }
@@ -1224,12 +1356,15 @@ io.on("connection", (socket) => {
       return;
     }
 
-    setSocketPlayer(socket, room, player);
-    const registered = registerOnlinePlayer(socket, player.name);
+    const registered = registerOnlinePlayer(socket, player.name, {
+      allowedSocketId: player.socketId,
+      allowedPlayerId: player.id,
+    });
     if (!registered.ok) {
       respond(callback, registered);
       return;
     }
+    setSocketPlayer(socket, room, player);
     respond(callback, { ok: true, roomCode: code, playerToken: player.token });
     emitState(room);
     emitCanvasHistory(room, socket.id);
@@ -1374,6 +1509,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("request_canvas_history", () => {
+    if (socketRateLimited(socket, "canvas-history", 4, 5_000)) return;
     const context = getPlayerRoom(socket);
     if (context) emitCanvasHistory(context.room, socket.id);
   });

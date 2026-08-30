@@ -13,6 +13,9 @@ Environment=PORT=3000
 Environment=CARD_IMAGE_DIR=/var/lib/hearth-draw/card-images
 Environment=MAX_ROOMS=100
 Environment=MAX_IMAGE_FETCHES=4
+Environment=MAX_IMAGE_FETCH_QUEUE=100
+Environment=TRUST_PROXY_HEADERS=true
+Environment=TRUSTED_PROXY_ADDRESSES=127.0.0.1,::1
 ExecStart=/usr/bin/node server/index.mjs
 Restart=on-failure
 RestartSec=3
