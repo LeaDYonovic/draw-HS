@@ -859,12 +859,77 @@ textarea:focus {
   gap: 14px;
 }
 
+.room-word-bank-slot {
+  flex: 0 0 auto;
+}
+
+.word-bank-picker {
+  padding: 19px 20px;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(232, 203, 143, 0.24);
+  border-radius: 12px;
+  color: #f6ead0;
+  background:
+    linear-gradient(145deg, rgba(13, 52, 60, 0.94), rgba(5, 25, 31, 0.92));
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.2);
+}
+
+.word-bank-picker-heading,
+.word-bank-picker-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.word-bank-picker-heading h3 {
+  margin-top: 3px;
+  font-size: 1.2rem;
+}
+
+.word-bank-picker-heading > span {
+  padding: 5px 10px;
+  border: 1px solid rgba(242, 209, 124, 0.3);
+  border-radius: 999px;
+  color: #f2d17c;
+  background: rgba(5, 22, 28, 0.45);
+  font-size: 0.72rem;
+}
+
+.word-bank-picker > label {
+  color: #9dbab7;
+  font-size: 0.72rem;
+}
+
+.word-bank-picker select {
+  width: 100%;
+  padding: 11px 12px;
+  border-color: rgba(224, 192, 129, 0.34);
+  color: #253f43;
+  background: #f3eddf;
+  font-weight: 800;
+}
+
+.word-bank-picker select:disabled { opacity: 0.78; }
+
+.word-bank-picker-summary {
+  padding-top: 2px;
+}
+
+.word-bank-picker-summary strong { color: #f3d98d; }
+.word-bank-picker-summary span { color: #9dbab7; font-size: 0.7rem; }
+.word-bank-picker > small { color: #7fa19f; font-size: 0.67rem; line-height: 1.6; }
+
 .invite-panel {
   width: 100%;
   padding: 28px;
   border-radius: 7px 24px 9px 20px;
   text-align: center;
 }
+
+.room-lobby-left .invite-panel { padding: 22px 24px; }
+.room-lobby-left .word-bank-seal { margin-top: 20px; padding-top: 18px; }
 
 .room-code-display {
   margin: 13px 0 8px;

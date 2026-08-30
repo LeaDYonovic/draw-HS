@@ -11,7 +11,6 @@ import {
   countWordCharacters,
   getChoiceEligibleWords,
   loadCardCatalog,
-  loadWordBank,
   maskWord,
   normalizeGuess,
   pickWords,
@@ -23,18 +22,46 @@ const rootDir = path.resolve(__dirname, "..");
 const CHOICE_OPTION_COUNT = 10;
 const TEST_BOT_NAME = "旅店老板 AI";
 const AI_CHOOSE_DELAY_MS = 700;
-const wordBankPath = path.join(
-  rootDir,
-  "legendary_collectible_cards_zhCN.names.txt",
-);
 const cardCatalogPath = path.join(
   rootDir,
-  "legendary_collectible_cards_zhCN.full.json",
+  "collectible_cards_zhCN.full.json",
 );
-const wordBank = loadWordBank(wordBankPath);
-const choiceWordBank = getChoiceEligibleWords(wordBank, CHOICE_OPTION_COUNT);
 const cardCatalog = loadCardCatalog(cardCatalogPath);
-const cardNames = new Set(cardCatalog.map((card) => card.name));
+const WORD_BANK_DEFINITIONS = [
+  { id: "all", label: "全部卡牌", group: "总览", matches: () => true },
+  { id: "legendary", label: "传说卡牌", group: "按稀有度", matches: (card) => card.rarity === "LEGENDARY" },
+  { id: "epic", label: "史诗卡牌", group: "按稀有度", matches: (card) => card.rarity === "EPIC" },
+  { id: "rare", label: "稀有卡牌", group: "按稀有度", matches: (card) => card.rarity === "RARE" },
+  { id: "common", label: "普通卡牌", group: "按稀有度", matches: (card) => card.rarity === "COMMON" },
+  { id: "free", label: "基础免费卡", group: "按稀有度", matches: (card) => card.rarity === "FREE" },
+  { id: "minion", label: "随从", group: "按类型", matches: (card) => card.type === "MINION" },
+  { id: "spell", label: "法术", group: "按类型", matches: (card) => card.type === "SPELL" },
+  { id: "weapon", label: "武器", group: "按类型", matches: (card) => card.type === "WEAPON" },
+  { id: "hero", label: "英雄牌", group: "按类型", matches: (card) => card.type === "HERO" },
+  { id: "location", label: "地标", group: "按类型", matches: (card) => card.type === "LOCATION" },
+];
+const wordBanks = new Map(WORD_BANK_DEFINITIONS.map((definition) => {
+  const cards = cardCatalog.filter(definition.matches);
+  const words = cards.map((card) => card.name);
+  const choiceWords = getChoiceEligibleWords(words, CHOICE_OPTION_COUNT);
+  return [definition.id, {
+    id: definition.id,
+    label: definition.label,
+    group: definition.group,
+    cards,
+    words,
+    choiceWords,
+    names: new Set(words),
+  }];
+}));
+const defaultWordBank = wordBanks.get("all");
+const publicWordBankOptions = [...wordBanks.values()].map((bank) => ({
+  id: bank.id,
+  label: bank.label,
+  group: bank.group,
+  count: bank.words.length,
+  choiceCount: bank.choiceWords.length,
+}));
 const cardIds = new Set(cardCatalog.map((card) => card.id).filter(Boolean));
 const cardByName = new Map();
 for (const card of cardCatalog) {
@@ -125,12 +152,17 @@ app.get("/api/health", (_request, response) => {
     ok: true,
     rooms: rooms.size,
     online: onlinePlayers.size,
-    words: wordBank.length,
+    words: defaultWordBank.words.length,
     cards: cardCatalog.length,
+    wordBanks: wordBanks.size,
   });
 });
 app.get("/api/word-bank", (_request, response) => {
-  response.json({ count: wordBank.length, source: path.basename(wordBankPath) });
+  response.json({
+    count: defaultWordBank.words.length,
+    source: path.basename(cardCatalogPath),
+    options: publicWordBankOptions,
+  });
 });
 app.get("/api/cards/search", (request, response) => {
   if (httpRateLimited(request, "card-search", 120, 60_000)) {
@@ -145,7 +177,9 @@ app.get("/api/cards/search", (request, response) => {
     health: parseCardStat(request.query.health),
   };
   const page = parseSearchPage(request.query.page);
+  const bank = wordBanks.get(String(request.query.wordBank ?? "all"));
   if (
+    !bank ||
     page === undefined ||
     filters.wordLength === undefined ||
     [filters.cost, filters.attack, filters.health].includes(undefined)
@@ -166,7 +200,7 @@ app.get("/api/cards/search", (request, response) => {
 
   response.set("Cache-Control", "no-store");
   const limit = 40;
-  const result = searchCards(cardCatalog, filters, limit, (page - 1) * limit);
+  const result = searchCards(bank.cards, filters, limit, (page - 1) * limit);
   response.json({
     ...result,
     limit,
@@ -175,13 +209,15 @@ app.get("/api/cards/search", (request, response) => {
   });
 });
 app.get("/api/cards/images/:fileName", async (request, response) => {
-  const cardId = String(request.params.fileName ?? "").replace(/\.png$/iu, "");
+  const cardId = String(request.params.fileName ?? "").replace(/\.(?:png|webp)$/iu, "");
   if (!/^[-A-Z0-9_]+$/iu.test(cardId) || !cardIds.has(cardId)) {
     response.status(404).end();
     return;
   }
 
-  const imagePath = path.join(cardImageDir, `${cardId}.png`);
+  const webpPath = path.join(cardImageDir, `${cardId}.webp`);
+  const pngPath = path.join(cardImageDir, `${cardId}.png`);
+  let imagePath = fs.existsSync(webpPath) ? webpPath : pngPath;
   if (
     !fs.existsSync(imagePath) &&
     httpRateLimited(request, "card-image-fetch", 240, 60_000)
@@ -190,9 +226,10 @@ app.get("/api/cards/images/:fileName", async (request, response) => {
     return;
   }
   try {
-    await ensureCardImage(cardId, imagePath);
+    await ensureCardImage(cardId, pngPath);
+    imagePath = fs.existsSync(webpPath) ? webpPath : pngPath;
     response.set("Cache-Control", "public, max-age=604800, immutable");
-    response.type("png").sendFile(imagePath);
+    response.type(path.extname(imagePath) === ".webp" ? "webp" : "png").sendFile(imagePath);
   } catch (error) {
     console.error(`无法载入卡牌图片 ${cardId}:`, error.message);
     response.set("Cache-Control", "no-store");
@@ -511,6 +548,10 @@ function chatRateLimited(socket, channel) {
   return false;
 }
 
+function getRoomWordBank(room) {
+  return wordBanks.get(room?.settings?.wordBankId) ?? defaultWordBank;
+}
+
 function createRoom(host, details = {}) {
   const requestedName = cleanRoomName(details.name);
   const requestedRules = cleanRoomRules(details.rules);
@@ -526,6 +567,7 @@ function createRoom(host, details = {}) {
       roundTime: 60,
       maxPlayers: 8,
       answerMode: "mixed",
+      wordBankId: "all",
     },
     messages: [],
     startOrder: [],
@@ -701,6 +743,7 @@ function publicState(room, viewerId) {
   const isDrawer = current?.drawerId === viewerId;
   const isSpectator = viewer?.isSpectator ?? false;
   const selectedWord = current?.word ?? "";
+  const selectedWordBank = getRoomWordBank(room);
   let visibleWord = "";
 
   if (room.phase === "drawing") {
@@ -717,7 +760,9 @@ function publicState(room, viewerId) {
     hostId: room.hostId,
     selfId: viewerId,
     settings: room.settings,
-    wordBankCount: wordBank.length,
+    wordBankCount: selectedWordBank.words.length,
+    wordBankName: selectedWordBank.label,
+    wordBankOptions: publicWordBankOptions,
     players: [...room.players.values()]
       .filter((player) => !player.left)
       .map((player) => ({
@@ -896,9 +941,10 @@ function beginTurn(room) {
   const drawerId = room.turnOrder[room.turnIndex];
   const drawer = room.players.get(drawerId);
   const chooseDurationMs = drawer.isBot ? AI_CHOOSE_DELAY_MS : CHOOSE_TIME_MS;
+  const selectedWordBank = getRoomWordBank(room);
   const roundWordBank = room.settings.answerMode === "search"
-    ? wordBank
-    : choiceWordBank;
+    ? selectedWordBank.words
+    : selectedWordBank.choiceWords;
   const options = pickWords(roundWordBank, 3, room.recentWords.slice(-30));
   const now = Date.now();
   room.phase = "choosing";
@@ -959,7 +1005,7 @@ function scheduleBotAnswers(room) {
           : wrongIndexes[crypto.randomInt(0, wrongIndexes.length)];
         current.answers.set(bot.id, { index, selectedAt: Date.now() });
       } else {
-        const wrongAnswers = wordBank.filter(
+        const wrongAnswers = getRoomWordBank(room).words.filter(
           (word) => normalizeGuess(word) !== normalizeGuess(current.word),
         );
         const name = shouldAnswerCorrectly
@@ -984,7 +1030,7 @@ function startDrawing(room, word) {
     ? (crypto.randomInt(0, 2) === 0 ? "choice" : "search")
     : room.settings.answerMode;
   room.current.answerOptions = room.current.questionType === "choice"
-    ? buildAnswerOptions(wordBank, word, CHOICE_OPTION_COUNT)
+    ? buildAnswerOptions(getRoomWordBank(room).words, word, CHOICE_OPTION_COUNT)
     : [];
   room.current.answers.clear();
   room.current.correctPlayers.clear();
@@ -1104,6 +1150,17 @@ function removeOrDeactivatePlayer(room, player, reason = "离开了房间") {
 }
 
 function validateSettings(input, current) {
+  const requestedWordBankId = String(input?.wordBankId ?? "");
+  const currentWordBankId = String(current?.wordBankId ?? "");
+  const wordBankId = wordBanks.has(requestedWordBankId)
+    ? requestedWordBankId
+    : wordBanks.has(currentWordBankId) ? currentWordBankId : "all";
+  const selectedWordBank = wordBanks.get(wordBankId) ?? defaultWordBank;
+  let answerMode = ["mixed", "choice", "search"].includes(input?.answerMode)
+    ? input.answerMode
+    : current.answerMode;
+  if (selectedWordBank.choiceWords.length < 3) answerMode = "search";
+
   return {
     roundsPerPlayer: Math.round(Math.max(
       1,
@@ -1116,9 +1173,8 @@ function validateSettings(input, current) {
       2,
       Math.min(12, Number(input?.maxPlayers) || current.maxPlayers),
     )),
-    answerMode: ["mixed", "choice", "search"].includes(input?.answerMode)
-      ? input.answerMode
-      : current.answerMode,
+    answerMode,
+    wordBankId,
   };
 }
 
@@ -1612,7 +1668,7 @@ io.on("connection", (socket) => {
     }
 
     const name = String(payload?.name ?? "").trim().slice(0, 80);
-    if (!cardNames.has(name)) {
+    if (!getRoomWordBank(room).names.has(name)) {
       respond(callback, { ok: false, error: "请选择检索结果中的卡牌" });
       return;
     }
@@ -1681,6 +1737,6 @@ io.on("connection", (socket) => {
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`炉边画谜服务已启动：http://localhost:${PORT}`);
-  console.log(`已载入 ${wordBank.length} 个题目`);
+  console.log(`已载入 ${defaultWordBank.words.length} 个题目及 ${wordBanks.size} 个词库`);
   console.log(`已载入 ${cardCatalog.length} 条卡牌检索数据`);
 });

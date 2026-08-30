@@ -78,7 +78,7 @@ function trackState(socket, event = "room_state") {
   };
 }
 
-async function startRound(t, answerMode) {
+async function startRound(t, answerMode, settings = {}) {
   const port = await getFreePort();
   const url = `http://127.0.0.1:${port}`;
   let childLogs = "";
@@ -114,7 +114,7 @@ async function startRound(t, answerMode) {
   assert.equal(joined.ok, true);
   await hostState.waitFor((state) => state.players.length === 2);
 
-  const configured = await emitAck(host, "update_settings", { answerMode });
+  const configured = await emitAck(host, "update_settings", { answerMode, ...settings });
   assert.equal(configured.ok, true);
 
   const started = await emitAck(host, "start_game");
@@ -154,7 +154,7 @@ async function startRound(t, answerMode) {
   );
   assert.equal(drawing.round.referenceCard, null);
 
-  return { answer, drawing, guest, guestState, host, hostState, url };
+  return { answer, choosing, drawing, guest, guestState, host, hostState, url };
 }
 
 test("an answerer can change a numbered choice before timeout", async (t) => {
@@ -327,6 +327,43 @@ test("a search answer can be filtered, selected, and changed before timeout", as
   const answerer = ended.players.find((player) => player.name === "猜客乙");
   assert.equal(answerer.answeredCorrectly, true);
   assert.ok(answerer.score >= 100);
+});
+
+test("a room word bank limits both chosen cards and search results", async (t) => {
+  const { answer, choosing, drawing, guest, hostState, url } = await startRound(
+    t,
+    "search",
+    { wordBankId: "common" },
+  );
+  const cards = JSON.parse(
+    await fs.readFile(path.join(root, "collectible_cards_zhCN.full.json"), "utf8"),
+  );
+  const commonNames = new Set(
+    cards.filter((card) => card.rarity === "COMMON").map((card) => card.name),
+  );
+
+  assert.equal(choosing.settings.wordBankId, "common");
+  assert.equal(choosing.wordBankName, "普通卡牌");
+  assert.equal(choosing.wordBankCount, 2114);
+  assert.ok(choosing.round.options.every((name) => commonNames.has(name)));
+  assert.ok(commonNames.has(answer));
+  assert.equal(drawing.round.questionType, "search");
+
+  const commonResponse = await fetch(
+    `${url}/api/cards/search?wordBank=common&name=${encodeURIComponent(answer)}`,
+  );
+  const commonData = await commonResponse.json();
+  assert.ok(commonData.results.some((card) => card.name === answer));
+
+  const legendaryResponse = await fetch(
+    `${url}/api/cards/search?wordBank=common&name=${encodeURIComponent("霜之哀伤")}`,
+  );
+  const legendaryData = await legendaryResponse.json();
+  assert.equal(legendaryData.total, 0);
+
+  const rejected = await emitAck(guest, "select_search_answer", { name: "霜之哀伤" });
+  assert.equal(rejected.ok, false);
+  assert.equal(hostState.current.settings.wordBankId, "common");
 });
 
 test("a solo host can start with an AI player that chooses and answers automatically", async (t) => {

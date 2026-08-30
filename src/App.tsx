@@ -259,7 +259,7 @@ function Home({
   return (
     <div className="home-layout page-enter">
       <section className="hero-copy">
-        <div className="eyebrow">997 张传说卡牌 · 一块实时画板</div>
+        <div className="eyebrow">5,777 张炉石卡牌 · 一块实时画板</div>
         <div className="brand-lockup">
           <div className="brand-gem"><span /></div>
           <div>
@@ -556,6 +556,11 @@ function RoomLobby({
   const [roomRules, setRoomRules] = useState(room.rules);
   const seatedPlayers = room.players.filter((player) => !player.isSpectator);
   const humanPlayers = seatedPlayers.filter((player) => !player.isBot);
+  const selectedWordBank = room.wordBankOptions.find(
+    (option) => option.id === room.settings.wordBankId,
+  ) ?? room.wordBankOptions[0];
+  const wordBankGroups = ["总览", "按稀有度", "按类型"];
+  const supportsChoice = (selectedWordBank?.choiceCount ?? 0) >= 3;
 
   useEffect(() => {
     setRoomName(room.name);
@@ -618,6 +623,46 @@ function RoomLobby({
               <span>个炉石题目已入库</span>
             </div>
           </section>
+
+          <div className="room-word-bank-slot">
+            <section className="word-bank-picker">
+              <div className="word-bank-picker-heading">
+                <div>
+                  <span className="section-kicker">题目范围</span>
+                  <h3>选择词库</h3>
+                </div>
+                <span>{selectedWordBank?.count ?? room.wordBankCount} 张</span>
+              </div>
+              <label htmlFor="word-bank">本局使用</label>
+              <select
+                disabled={!room.isHost}
+                id="word-bank"
+                onChange={(event) => updateSetting({ wordBankId: event.target.value })}
+                value={room.settings.wordBankId}
+              >
+                {wordBankGroups.map((group) => (
+                  <optgroup key={group} label={group}>
+                    {room.wordBankOptions
+                      .filter((option) => option.group === group)
+                      .map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}（{option.count}）
+                        </option>
+                      ))}
+                  </optgroup>
+                ))}
+              </select>
+              <div className="word-bank-picker-summary">
+                <strong>{selectedWordBank?.label ?? room.wordBankName}</strong>
+                <span>{selectedWordBank?.choiceCount ?? 0} 张支持十选一</span>
+              </div>
+              <small>
+                {room.isHost
+                  ? "切换后，选题、选择题和搜索题都会限定在该词库。"
+                  : `房主已选择${room.wordBankName}。`}
+              </small>
+            </section>
+          </div>
 
           {room.isHost ? (
             <div className="start-game-area room-lobby-start">
@@ -694,8 +739,8 @@ function RoomLobby({
                 onChange={(event) => updateSetting({ answerMode: event.target.value as GameSettings["answerMode"] })}
                 value={room.settings.answerMode}
               >
-                <option value="mixed">混合随机</option>
-                <option value="choice">仅选择题</option>
+                <option disabled={!supportsChoice} value="mixed">混合随机</option>
+                <option disabled={!supportsChoice} value="choice">仅选择题</option>
                 <option value="search">仅搜索题</option>
               </select>
             </div>
@@ -965,9 +1010,11 @@ const EMPTY_SEARCH_FILTERS: SearchFilters = {
 
 function SearchAnswerPanel({
   round,
+  wordBankId,
   onError,
 }: {
   round: NonNullable<RoomState["round"]>;
+  wordBankId: string;
   onError: (message?: string) => void;
 }) {
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_SEARCH_FILTERS);
@@ -992,6 +1039,7 @@ function SearchAnswerPanel({
       if (value.trim()) params.set(key, value.trim());
     }
     params.set("page", String(page));
+    params.set("wordBank", wordBankId);
 
     setLoading(true);
     fetch(`/api/cards/search?${params}`, { signal: controller.signal })
@@ -1013,7 +1061,7 @@ function SearchAnswerPanel({
       });
 
     return () => controller.abort();
-  }, [page, submittedFilters]);
+  }, [page, submittedFilters, wordBankId]);
 
   const updateFilter = (field: keyof SearchFilters, value: string) => {
     setFilters((current) => ({ ...current, [field]: value }));
@@ -1155,7 +1203,7 @@ function GameSidebar({ room, onError }: { room: RoomState; onError: (message?: s
         round.questionType === "choice" ? (
           <ChoiceAnswerPanel onError={onError} round={round} />
         ) : (
-          <SearchAnswerPanel onError={onError} round={round} />
+          <SearchAnswerPanel onError={onError} round={round} wordBankId={room.settings.wordBankId} />
         )
       ) : (
         <RoomChatPanel onError={onError} room={room} />

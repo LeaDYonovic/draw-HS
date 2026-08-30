@@ -24,6 +24,8 @@ export function loadCardCatalog(filePath) {
         id,
         name: card.name.trim(),
         set: typeof card.set === "string" ? card.set : "",
+        rarity: typeof card.rarity === "string" ? card.rarity : "",
+        cardClass: typeof card.cardClass === "string" ? card.cardClass : "",
         wordLength: countWordCharacters(card.name.trim()),
         cost: Number.isFinite(card.cost) ? card.cost : null,
         attack: Number.isFinite(card.attack) ? card.attack : null,

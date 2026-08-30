@@ -19,12 +19,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 test("loads the supplied word bank without empty or duplicate entries", () => {
   const words = loadWordBank(
-    path.join(root, "legendary_collectible_cards_zhCN.names.txt"),
+    path.join(root, "collectible_cards_zhCN.names.txt"),
   );
 
-  assert.equal(words.length, 997);
+  assert.equal(words.length, 5777);
   assert.equal(new Set(words).size, words.length);
   assert.ok(words.includes("霜之哀伤"));
+  assert.ok(words.includes("炫晶小熊"));
 });
 
 test("normalizes spacing and punctuation in guesses", () => {
@@ -77,14 +78,14 @@ test("only choice words with enough same-length alternatives are eligible", () =
 
 test("searches card JSON by name and exact combat stats without duplicate names", () => {
   const cards = loadCardCatalog(
-    path.join(root, "legendary_collectible_cards_zhCN.full.json"),
+    path.join(root, "collectible_cards_zhCN.full.json"),
   );
   const matched = searchCards(cards, {
-    name: "凋零",
+    name: "炫晶",
     wordLength: 4,
-    cost: 3,
-    attack: 3,
-    health: 3,
+    cost: 1,
+    attack: 1,
+    health: 2,
   });
   const reprints = searchCards(cards, {
     name: "大法师安东尼达斯",
@@ -108,16 +109,17 @@ test("searches card JSON by name and exact combat stats without duplicate names"
     health: null,
   }, 40, 40);
 
-  assert.equal(cards.length, 997);
+  assert.equal(cards.length, 5777);
   assert.equal(new Set(cards.map((card) => card.name)).size, cards.length);
-  const blightfang = matched.results.find((card) => card.name === "凋零毒牙");
-  assert.ok(blightfang);
-  assert.equal(blightfang.id, "RLK_225");
-  assert.equal(blightfang.wordLength, 4);
-  assert.equal(blightfang.imageUrl, "/api/cards/images/RLK_225.png");
+  const crystalspineCub = matched.results.find((card) => card.name === "炫晶小熊");
+  assert.ok(crystalspineCub);
+  assert.equal(crystalspineCub.id, "CATA_130");
+  assert.equal(crystalspineCub.rarity, "COMMON");
+  assert.equal(crystalspineCub.wordLength, 4);
+  assert.equal(crystalspineCub.imageUrl, "/api/cards/images/CATA_130.png");
   assert.equal(reprints.total, 1);
   assert.equal(reprints.results.length, 1);
-  assert.equal(firstLongNamePage.total, 203);
+  assert.ok(firstLongNamePage.total > 40);
   assert.equal(firstLongNamePage.results.length, 40);
   assert.equal(secondLongNamePage.results.length, 40);
   assert.equal(

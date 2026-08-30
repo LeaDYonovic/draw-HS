@@ -13,6 +13,15 @@ export interface GameSettings {
   roundTime: number;
   maxPlayers: number;
   answerMode: AnswerMode;
+  wordBankId: string;
+}
+
+export interface WordBankOption {
+  id: string;
+  label: string;
+  group: string;
+  count: number;
+  choiceCount: number;
 }
 
 export interface PlayerState {
@@ -100,6 +109,8 @@ export interface RoomState {
   selfId: string;
   settings: GameSettings;
   wordBankCount: number;
+  wordBankName: string;
+  wordBankOptions: WordBankOption[];
   players: PlayerState[];
   round: RoundState | null;
   messages: ChatMessage[];
