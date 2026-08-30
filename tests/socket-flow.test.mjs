@@ -153,6 +153,17 @@ async function startRound(t, answerMode, settings = {}) {
     /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u,
   );
   assert.equal(drawing.round.referenceCard, null);
+  assert.equal(drawing.round.durationMs, 1000);
+  assert.equal(drawing.round.clues.stage, 0);
+  assert.equal(drawing.round.clues.range, drawing.wordBankName);
+  assert.equal(drawing.round.clues.scoreBand.maximum, 100);
+  assert.equal(drawing.round.clues.scoreBand.minimum, 80);
+  assert.equal(drawing.round.clues.fields.length, 6);
+  assert.equal(
+    drawing.round.clues.fields.find((field) => field.key === "length").source,
+    "base",
+  );
+  assert.equal(hostState.current.round.clues, null);
 
   return { answer, choosing, drawing, guest, guestState, host, hostState, url };
 }
@@ -267,7 +278,7 @@ test("an answerer can change a numbered choice before timeout", async (t) => {
   );
   const answerer = ended.players.find((player) => player.name === "猜客乙");
   assert.equal(answerer.answeredCorrectly, true);
-  assert.ok(answerer.score >= 100);
+  assert.ok(answerer.score >= 20 && answerer.score <= 100);
 });
 
 test("a search answer can be filtered, selected, and changed before timeout", async (t) => {
@@ -338,7 +349,56 @@ test("a search answer can be filtered, selected, and changed before timeout", as
   assert.equal(ended.round.word, answer);
   const answerer = ended.players.find((player) => player.name === "猜客乙");
   assert.equal(answerer.answeredCorrectly, true);
-  assert.ok(answerer.score >= 100);
+  assert.ok(answerer.score >= 20 && answerer.score <= 100);
+});
+
+test("scope-aware staged hints preserve an early answer score", async (t) => {
+  const { answer, drawing, guest, guestState } = await startRound(
+    t,
+    "search",
+    { wordBankIds: ["legendary", "minion"] },
+  );
+  const initialFields = Object.fromEntries(
+    drawing.round.clues.fields.map((field) => [field.key, field]),
+  );
+  assert.equal(drawing.wordBankName, "传说卡牌 · 随从");
+  assert.equal(initialFields.type.value, "随从");
+  assert.equal(initialFields.type.source, "scope");
+  assert.equal(initialFields.rarity.value, "传说");
+  assert.equal(initialFields.rarity.source, "scope");
+  assert.equal(initialFields.class.value, "待揭示");
+  assert.equal(initialFields.cost.value, "待揭示");
+
+  const selected = await emitAck(guest, "select_search_answer", { name: answer });
+  assert.equal(selected.ok, true);
+  const earlyState = await guestState.waitFor(
+    (state) => state.round.clues.selectedScore !== null,
+  );
+  const earlyScore = earlyState.round.clues.selectedScore;
+  assert.ok(earlyScore >= 80 && earlyScore <= 100);
+
+  const firstHint = await guestState.waitFor(
+    (state) => state.round.clues.stage === 1,
+  );
+  const firstFields = Object.fromEntries(
+    firstHint.round.clues.fields.map((field) => [field.key, field]),
+  );
+  assert.equal(firstHint.round.clues.selectedScore, earlyScore);
+  assert.equal(firstHint.round.clues.scoreBand.maximum, 70);
+  assert.equal(firstFields.class.source, "hint");
+  assert.match(firstFields.cost.value, /费/u);
+  assert.equal(firstFields.stats.value, "待揭示");
+
+  const secondHint = await guestState.waitFor(
+    (state) => state.round.clues.stage === 2,
+  );
+  const secondFields = Object.fromEntries(
+    secondHint.round.clues.fields.map((field) => [field.key, field]),
+  );
+  assert.equal(secondHint.round.clues.selectedScore, earlyScore);
+  assert.equal(secondHint.round.clues.scoreBand.maximum, 40);
+  assert.match(secondFields.cost.value, /^\d+ 费$/u);
+  assert.notEqual(secondFields.stats.value, "待揭示");
 });
 
 test("room word banks combine same-group unions with cross-group intersections", async (t) => {

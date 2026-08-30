@@ -79,6 +79,25 @@ export interface CardPreview {
   imageUrl: string;
 }
 
+export interface RoundClueField {
+  key: "length" | "type" | "class" | "rarity" | "cost" | "stats";
+  label: string;
+  value: string;
+  source: "base" | "scope" | "hint" | "hidden";
+}
+
+export interface RoundClueState {
+  stage: number;
+  range: string;
+  scoreBand: {
+    stage: number;
+    minimum: number;
+    maximum: number;
+  };
+  selectedScore: number | null;
+  fields: RoundClueField[];
+}
+
 export interface RoundState {
   key: string;
   turn: number;
@@ -86,6 +105,7 @@ export interface RoundState {
   cycle: number;
   drawerId: string;
   endsAt: number;
+  durationMs: number;
   word: string;
   wordLength: number;
   questionType: QuestionType | null;
@@ -97,6 +117,7 @@ export interface RoundState {
   answerOptionCards: CardPreview[];
   selectedAnswerIndex: number | null;
   selectedAnswerName: string;
+  clues: RoundClueState | null;
   resultReason: "timeout" | "drawerLeft" | null;
 }
 

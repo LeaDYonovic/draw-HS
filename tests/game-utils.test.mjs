@@ -8,6 +8,7 @@ import {
   buildAnswerOptions,
   calculateScore,
   countWordCharacters,
+  getHintStage,
   getChoiceEligibleCards,
   getChoiceEligibleWords,
   loadCardCatalog,
@@ -55,8 +56,15 @@ test("normalizes spacing and punctuation in guesses", () => {
 
 test("masks words and keeps score inside the expected range", () => {
   assert.equal(maskWord("海 拉"), "＿    ＿");
-  assert.equal(calculateScore(60_000, 60_000), 200);
-  assert.equal(calculateScore(0, 60_000), 100);
+  assert.equal(calculateScore(60_000, 60_000), 100);
+  assert.equal(calculateScore(36_001, 60_000), 80);
+  assert.equal(calculateScore(36_000, 60_000), 70);
+  assert.equal(calculateScore(18_001, 60_000), 50);
+  assert.equal(calculateScore(18_000, 60_000), 40);
+  assert.equal(calculateScore(0, 60_000), 20);
+  assert.equal(getHintStage(36_001, 60_000), 0);
+  assert.equal(getHintStage(36_000, 60_000), 1);
+  assert.equal(getHintStage(18_000, 60_000), 2);
 });
 
 test("picks distinct words while respecting recent exclusions", () => {

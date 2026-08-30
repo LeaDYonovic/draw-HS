@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
 import {
+  SCORE_BANDS,
   buildCardAnswerOptions,
   calculateScore,
   countWordCharacters,
@@ -67,6 +68,48 @@ const WORD_BANK_DEFINITIONS = [
   { id: "hero", label: "英雄牌", group: "按类型", matches: (card) => card.type === "HERO" },
   { id: "location", label: "地标", group: "按类型", matches: (card) => card.type === "LOCATION" },
 ];
+const TYPE_BANK_VALUES = new Map([
+  ["minion", "MINION"],
+  ["spell", "SPELL"],
+  ["weapon", "WEAPON"],
+  ["hero", "HERO"],
+  ["location", "LOCATION"],
+]);
+const RARITY_BANK_VALUES = new Map([
+  ["legendary", "LEGENDARY"],
+  ["epic", "EPIC"],
+  ["rare", "RARE"],
+  ["common", "COMMON"],
+  ["free", "FREE"],
+]);
+const CARD_TYPE_LABELS = {
+  MINION: "随从",
+  SPELL: "法术",
+  WEAPON: "武器",
+  HERO: "英雄牌",
+  LOCATION: "地标",
+};
+const CARD_CLASS_LABELS = {
+  DEATHKNIGHT: "死亡骑士",
+  DEMONHUNTER: "恶魔猎手",
+  DRUID: "德鲁伊",
+  HUNTER: "猎人",
+  MAGE: "法师",
+  NEUTRAL: "中立",
+  PALADIN: "圣骑士",
+  PRIEST: "牧师",
+  ROGUE: "潜行者",
+  SHAMAN: "萨满祭司",
+  WARLOCK: "术士",
+  WARRIOR: "战士",
+};
+const CARD_RARITY_LABELS = {
+  LEGENDARY: "传说",
+  EPIC: "史诗",
+  RARE: "稀有",
+  COMMON: "普通",
+  FREE: "基础",
+};
 const wordBanks = new Map(WORD_BANK_DEFINITIONS.map((definition) => {
   const cards = cardCatalog.filter(definition.matches);
   const words = cards.map((card) => card.name);
@@ -674,6 +717,7 @@ function createRoom(host, details = {}) {
     hostId: host.id,
     players: new Map([[host.id, host]]),
     phase: "lobby",
+    hintTimers: [],
     settings: {
       roundsPerPlayer: 2,
       roundTime: 60,
@@ -778,12 +822,110 @@ function clearRoomTimer(room) {
     clearTimeout(room.timer);
     room.timer = null;
   }
+  for (const timer of room.hintTimers ?? []) clearTimeout(timer);
+  room.hintTimers = [];
 }
 
 function roundDurationMs(room) {
   return Number.isFinite(ROUND_TIME_OVERRIDE_MS) && ROUND_TIME_OVERRIDE_MS >= 100
     ? ROUND_TIME_OVERRIDE_MS
     : room.settings.roundTime * 1000;
+}
+
+function singleSelectedValue(ids, values) {
+  const selected = ids.filter((id) => values.has(id));
+  return selected.length === 1 ? values.get(selected[0]) : null;
+}
+
+function formatCostBand(cost) {
+  if (!Number.isFinite(cost)) return "无费用";
+  if (cost <= 3) return "0～3 费";
+  if (cost <= 6) return "4～6 费";
+  return "7 费以上";
+}
+
+function formatCardStats(card) {
+  if (card.type === "MINION") {
+    return `${card.attack ?? "-"} 攻 / ${card.health ?? "-"} 血`;
+  }
+  if (card.type === "WEAPON") {
+    return `${card.attack ?? "-"} 攻 / ${card.health ?? "-"} 耐久`;
+  }
+  if (card.type === "LOCATION") return `${card.health ?? "-"} 耐久`;
+  return "无攻防属性";
+}
+
+function clueField(key, label, value, source = "hidden") {
+  return { key, label, value: value || "待揭示", source };
+}
+
+function buildRoundClues(room, current, viewerId) {
+  const card = cardByName.get(current?.word);
+  if (!card) return null;
+
+  const stage = Math.max(0, Math.min(2, current.hintStage ?? 0));
+  const selectedIds = normalizeWordBankIds(room.settings.wordBankIds);
+  const scopedType = singleSelectedValue(selectedIds, TYPE_BANK_VALUES);
+  const scopedRarity = singleSelectedValue(selectedIds, RARITY_BANK_VALUES);
+  const typeVisible = Boolean(scopedType) || stage >= 1;
+  const rarityHintStage = scopedType ? 1 : 2;
+  const rarityVisible = Boolean(scopedRarity) || stage >= rarityHintStage;
+  const showCostBand = stage === 1 && Boolean(scopedType) && Boolean(scopedRarity);
+  const selection = current.answers?.get(viewerId);
+  const durationMs = roundDurationMs(room);
+  const selectedScore = selection
+    ? calculateScore(
+      Math.max(0, current.startedAt + durationMs - selection.selectedAt),
+      durationMs,
+    )
+    : null;
+
+  return {
+    stage,
+    range: getRoomWordBank(room).label,
+    scoreBand: SCORE_BANDS[stage],
+    selectedScore,
+    fields: [
+      clueField(
+        "length",
+        "字数",
+        `${countWordCharacters(card.name)} 个字`,
+        "base",
+      ),
+      clueField(
+        "type",
+        "类型",
+        typeVisible ? (CARD_TYPE_LABELS[card.type] ?? card.type) : "",
+        scopedType ? "scope" : typeVisible ? "hint" : "hidden",
+      ),
+      clueField(
+        "class",
+        "职业",
+        stage >= 1 ? (CARD_CLASS_LABELS[card.cardClass] ?? card.cardClass) : "",
+        stage >= 1 ? "hint" : "hidden",
+      ),
+      clueField(
+        "rarity",
+        "稀有度",
+        rarityVisible ? (CARD_RARITY_LABELS[card.rarity] ?? card.rarity) : "",
+        scopedRarity ? "scope" : rarityVisible ? "hint" : "hidden",
+      ),
+      clueField(
+        "cost",
+        "费用",
+        stage >= 2
+          ? (Number.isFinite(card.cost) ? `${card.cost} 费` : "无费用")
+          : showCostBand ? formatCostBand(card.cost) : "",
+        stage >= 2 || showCostBand ? "hint" : "hidden",
+      ),
+      clueField(
+        "stats",
+        "属性",
+        stage >= 2 ? formatCardStats(card) : "",
+        stage >= 2 ? "hint" : "hidden",
+      ),
+    ],
+  };
 }
 
 function resolveCardImage(cardId) {
@@ -914,6 +1056,7 @@ function publicState(room, viewerId) {
               : 0,
           drawerId: current.drawerId,
           endsAt: current.endsAt,
+          durationMs: room.phase === "drawing" ? roundDurationMs(room) : 0,
           word: visibleWord,
           wordLength: selectedWord ? countWordCharacters(selectedWord) : 0,
           questionType: current.questionType,
@@ -946,6 +1089,10 @@ function publicState(room, viewerId) {
             !isDrawer && !isSpectator && current.questionType === "search" && current.answers?.has(viewerId)
               ? current.answers.get(viewerId).name
               : "",
+          clues:
+            room.phase === "drawing" && !isDrawer
+              ? buildRoundClues(room, current, viewerId)
+              : null,
           resultReason: current.resultReason ?? null,
         }
       : null,
@@ -1083,6 +1230,7 @@ function beginTurn(room) {
     startedAt: now,
     endsAt: now + chooseDurationMs,
     resultReason: null,
+    hintStage: 0,
   };
   io.to(room.code).emit("canvas_event", { type: "clear" });
   addSystemMessage(
@@ -1141,6 +1289,26 @@ function scheduleBotAnswers(room) {
   }
 }
 
+function revealHintStage(room, roundStartedAt, stage) {
+  const current = room.current;
+  if (
+    room.phase !== "drawing" ||
+    !current ||
+    current.startedAt !== roundStartedAt ||
+    current.hintStage >= stage
+  ) {
+    return;
+  }
+  current.hintStage = stage;
+  addSystemMessage(
+    room,
+    stage === 1
+      ? "第一条线索已公开，本题分数进入 70～50 分档。"
+      : "第二条线索已公开，本题分数进入 40～20 分档。",
+  );
+  emitState(room);
+}
+
 function startDrawing(room, word) {
   if (room.phase !== "choosing" || !room.current) return;
   if (!room.current.options.includes(word)) word = room.current.options[0];
@@ -1161,6 +1329,7 @@ function startDrawing(room, word) {
     : [];
   room.current.answers.clear();
   room.current.correctPlayers.clear();
+  room.current.hintStage = 0;
   room.current.startedAt = now;
   const durationMs = roundDurationMs(room);
   room.current.endsAt = now + durationMs;
@@ -1175,6 +1344,16 @@ function startDrawing(room, word) {
   }
   emitState(room);
   scheduleBotAnswers(room);
+  room.hintTimers = [
+    setTimeout(
+      () => revealHintStage(room, now, 1),
+      Math.round(durationMs * 0.4),
+    ),
+    setTimeout(
+      () => revealHintStage(room, now, 2),
+      Math.round(durationMs * 0.7),
+    ),
+  ];
   room.timer = setTimeout(
     () => finishTurn(room, "timeout"),
     durationMs,
@@ -1203,7 +1382,7 @@ function settleAnswers(room) {
     current.correctPlayers.add(player.id);
     correctPlayers.push(player.name);
     if (drawer && !drawer.isBot) {
-      drawer.score += Math.max(25, Math.round(score * 0.25));
+      drawer.score += Math.max(5, Math.round(score * 0.25));
     }
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { CanvasBoard } from "./components/CanvasBoard";
 import { emitWithAck, socket } from "./realtime";
+import { calculateScore } from "./score-rules.mjs";
 import type {
   CardPreview,
   CardSearchResponse,
@@ -877,12 +878,18 @@ function GameRoom({
           </strong>
           {room.phase === "drawing" && !room.isDrawer && (
             <small>
-              {room.isSpectator ? "围观中 · 当前不能答题" : `${round?.wordLength} 个字 · ${round?.questionType === "search" ? "搜索题" : "选择题"}`}
+              {room.isSpectator
+                ? "围观中 · 当前不能答题"
+                : `${round?.questionType === "search" ? "搜索题" : "选择题"} · 结束前可修改答案`}
             </small>
           )}
         </div>
         <RoundTimer endsAt={round?.endsAt ?? Date.now()} phase={room.phase} />
       </section>
+
+      {room.phase === "drawing" && !room.isDrawer && round?.clues && (
+        <RoundCluePanel isSpectator={room.isSpectator} round={round} />
+      )}
 
       {room.isSpectator && (
         <section className={`spectator-join-bar ${room.joinQueued ? "queued" : ""}`}>
@@ -962,6 +969,71 @@ function GameRoom({
         <GameSidebar onError={onError} room={room} />
       </div>
     </div>
+  );
+}
+
+function RoundCluePanel({
+  round,
+  isSpectator,
+}: {
+  round: NonNullable<RoomState["round"]>;
+  isSpectator: boolean;
+}) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [round.key, round.endsAt]);
+
+  const clues = round.clues;
+  if (!clues) return null;
+  const currentScore = calculateScore(
+    Math.max(0, round.endsAt - now),
+    Math.max(1, round.durationMs),
+  );
+  const stageLabels = ["抢答阶段", "第一条线索", "第二条线索"];
+  const stageMessages = [
+    "剩余 60% 时间时公开第一条线索",
+    "线索已增加，当前分数进入 70～50 分档",
+    "强线索已公开，当前分数进入 40～20 分档",
+  ];
+
+  return (
+    <section
+      aria-label="本题线索"
+      className={`round-clue-panel stage-${clues.stage}`}
+    >
+      <div className="clue-summary">
+        <div className="clue-range" title={clues.range}>
+          <span>题库范围</span>
+          <strong>{clues.range}</strong>
+        </div>
+        <div className="clue-stage" aria-live="polite">
+          <span>{stageLabels[clues.stage] ?? stageLabels[0]}</span>
+          <small>{stageMessages[clues.stage] ?? stageMessages[0]}</small>
+        </div>
+        <div className="clue-score">
+          <span>{isSpectator ? "本题分档" : clues.selectedScore === null ? "当前答对" : "当前选择答对"}</span>
+          <strong>
+            {isSpectator
+              ? `${clues.scoreBand.maximum}～${clues.scoreBand.minimum}`
+              : `${clues.selectedScore ?? currentScore} 分`}
+          </strong>
+          {!isSpectator && clues.selectedScore !== null && <small>修改后重新计分</small>}
+        </div>
+      </div>
+      <div className="clue-fields">
+        {clues.fields.map((field) => (
+          <div className={field.source} key={field.key}>
+            <span>{field.label}</span>
+            <strong>{field.value}</strong>
+            {field.source === "scope" && <small>题库范围</small>}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

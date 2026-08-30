@@ -1,4 +1,5 @@
 import fs from "node:fs";
+export { SCORE_BANDS, calculateScore, getHintStage } from "../src/score-rules.mjs";
 
 const PUNCTUATION = /[\s\p{P}\p{S}]/gu;
 
@@ -81,11 +82,6 @@ export function maskWord(word) {
   return [...word]
     .map((character) => (/\s/u.test(character) ? "  " : "＿"))
     .join(" ");
-}
-
-export function calculateScore(remainingMs, totalMs) {
-  const ratio = Math.max(0, Math.min(1, remainingMs / totalMs));
-  return 100 + Math.round(ratio * 100);
 }
 
 export function countWordCharacters(value) {
