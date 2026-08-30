@@ -412,7 +412,7 @@ function GameLobby({
 
         <div className="lobby-room-column">
           <section className="room-directory">
-            <div className="panel-title"><strong>大厅牌桌</strong><span>{lobby.rooms.length} 个房间</span></div>
+            <div className="panel-title"><strong>可加入房间</strong><span>{lobby.rooms.length} 个房间</span></div>
             <div className="room-directory-list">
               {lobby.rooms.length === 0 ? (
                 <div className="room-directory-empty"><strong>还没有牌桌</strong><span>创建一桌，等朋友加入吧</span></div>

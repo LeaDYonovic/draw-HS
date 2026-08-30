@@ -537,11 +537,11 @@ textarea:focus {
 
 .public-lobby-grid {
   display: grid;
-  grid-template-columns: minmax(520px, 1fr) 360px;
-  grid-template-rows: minmax(320px, 1fr) 220px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto minmax(180px, 1fr);
   grid-template-areas:
-    "rooms actions"
-    "chat roster";
+    "actions rooms chat"
+    "roster rooms chat";
   align-items: stretch;
   gap: 14px;
   height: min(650px, calc(100vh - 190px));
@@ -2088,8 +2088,14 @@ textarea:focus {
   .entry-card { width: min(480px, 100%); margin: 0 auto; }
 
   .public-lobby-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
-    grid-template-rows: minmax(320px, 1fr) 220px;
+    height: auto;
+    min-height: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto 240px 260px;
+    grid-template-areas:
+      "actions rooms"
+      "roster rooms"
+      "chat chat";
   }
 
   .lobby-grid { grid-template-columns: 250px 1fr; gap: 28px; }
@@ -2128,10 +2134,10 @@ textarea:focus {
     height: auto;
     min-height: 0;
     grid-template-columns: 1fr;
-    grid-template-rows: 380px auto 250px 220px;
+    grid-template-rows: auto 380px 250px 220px;
     grid-template-areas:
-      "rooms"
       "actions"
+      "rooms"
       "chat"
       "roster";
   }
