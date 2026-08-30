@@ -30,6 +30,7 @@ function syntheticArtwork(width = 96, height = 108) {
 test("extracts a bounded normalized outline from contrast data", () => {
   const result = buildOutlineSegments(syntheticArtwork(), {
     canvasAspect: 4 / 3,
+    detail: "detailed",
     mask: "ellipse",
     maxSegments: 320,
   });
@@ -39,7 +40,7 @@ test("extracts a bounded normalized outline from contrast data", () => {
   assert.ok(result.threshold > 0);
   for (const segment of result.segments) {
     assert.equal(segment.tool, "brush");
-    assert.equal(segment.size, 2);
+    assert.equal(segment.size, 1.7);
     assert.match(segment.color, /^#[0-9a-f]{6}$/u);
     assert.ok(
       [segment.x0, segment.y0, segment.x1, segment.y1].every(
@@ -49,12 +50,25 @@ test("extracts a bounded normalized outline from contrast data", () => {
   }
 });
 
-test("supports rounded artwork masks and rejects malformed pixel buffers", () => {
-  const rounded = buildOutlineSegments(syntheticArtwork(), {
+test("supports detail presets, rounded masks, and malformed buffer rejection", () => {
+  const simple = buildOutlineSegments(syntheticArtwork(), {
+    detail: "simple",
     mask: "rounded",
-    maxSegments: 180,
   });
-  assert.equal(rounded.segments.length, 180);
+  const standard = buildOutlineSegments(syntheticArtwork(), {
+    detail: "standard",
+    mask: "rounded",
+  });
+  const detailed = buildOutlineSegments(syntheticArtwork(), {
+    detail: "detailed",
+    mask: "rounded",
+  });
+  assert.ok(simple.segments.length >= 20);
+  assert.ok(simple.segments.length < standard.segments.length);
+  assert.ok(standard.segments.length < detailed.segments.length);
+  assert.equal(simple.segments[0].size, 2.4);
+  assert.equal(standard.segments[0].size, 2);
+  assert.equal(detailed.segments[0].size, 1.7);
   assert.throws(
     () => buildOutlineSegments({ data: new Uint8ClampedArray(), width: 2, height: 2 }),
     /像素数据/u,
@@ -79,16 +93,17 @@ test("uses a calibrated artwork crop for every supported card type", () => {
     assert.ok(layout.x >= 0 && layout.y >= 0);
     assert.ok(layout.x + layout.width <= 1);
     assert.ok(layout.y + layout.height <= 1);
+    assert.ok(layout.y + layout.height <= 0.55);
   }
 });
 
 test("uses a dedicated CORS cache key for canvas image analysis", () => {
   assert.equal(
     getOutlineImageUrl("https://assets.example.com/card.webp?v=latest"),
-    "https://assets.example.com/card.webp?v=latest&outline=canvas-v1",
+    "https://assets.example.com/card.webp?v=latest&outline=canvas-v2",
   );
   assert.equal(
     getOutlineImageUrl("/api/cards/images/card.png#preview"),
-    "/api/cards/images/card.png?outline=canvas-v1#preview",
+    "/api/cards/images/card.png?outline=canvas-v2#preview",
   );
 });

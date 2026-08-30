@@ -1,20 +1,50 @@
 const ART_LAYOUTS = {
-  MINION: { x: 0.23, y: 0.15, width: 0.54, height: 0.42, mask: "ellipse" },
-  HERO: { x: 0.235, y: 0.17, width: 0.53, height: 0.39, mask: "ellipse" },
-  SPELL: { x: 0.17, y: 0.17, width: 0.66, height: 0.35, mask: "rounded" },
-  WEAPON: { x: 0.245, y: 0.17, width: 0.51, height: 0.36, mask: "ellipse" },
-  LOCATION: { x: 0.15, y: 0.14, width: 0.70, height: 0.40, mask: "rounded" },
+  MINION: { x: 0.21, y: 0.10, width: 0.58, height: 0.34, mask: "ellipse" },
+  HERO: { x: 0.25, y: 0.15, width: 0.50, height: 0.31, mask: "ellipse" },
+  SPELL: { x: 0.18, y: 0.15, width: 0.68, height: 0.32, mask: "rounded" },
+  WEAPON: { x: 0.21, y: 0.14, width: 0.58, height: 0.33, mask: "ellipse" },
+  LOCATION: { x: 0.15, y: 0.18, width: 0.70, height: 0.35, mask: "rounded" },
 };
 const DEFAULT_ART_LAYOUT = {
   x: 0.20,
-  y: 0.16,
+  y: 0.14,
   width: 0.60,
-  height: 0.39,
+  height: 0.34,
   mask: "rounded",
 };
-const GRID_WIDTH = 96;
-const MAX_SEGMENTS = 900;
-const OUTLINE_IMAGE_VERSION = "canvas-v1";
+const DETAIL_PRESETS = {
+  simple: {
+    gridWidth: 84,
+    highQuantile: 0.88,
+    lowThresholdRatio: 0.52,
+    minComponentSize: 8,
+    maxSegments: 300,
+    spacingRadius: 2,
+    tangentHalfLength: 2.8,
+    brushSize: 2.4,
+  },
+  standard: {
+    gridWidth: 104,
+    highQuantile: 0.82,
+    lowThresholdRatio: 0.46,
+    minComponentSize: 5,
+    maxSegments: 520,
+    spacingRadius: 1,
+    tangentHalfLength: 1.7,
+    brushSize: 2,
+  },
+  detailed: {
+    gridWidth: 128,
+    highQuantile: 0.76,
+    lowThresholdRatio: 0.4,
+    minComponentSize: 3,
+    maxSegments: 820,
+    spacingRadius: 0,
+    tangentHalfLength: 1.15,
+    brushSize: 1.7,
+  },
+};
+const OUTLINE_IMAGE_VERSION = "canvas-v2";
 
 export function getCardArtLayout(cardType) {
   return {
@@ -186,12 +216,90 @@ function connectWeakEdges(values, width, height, highThreshold, lowThreshold) {
   return accepted;
 }
 
+function removeSmallComponents(accepted, width, height, minimumSize) {
+  if (minimumSize <= 1) return accepted;
+  const filtered = new Uint8Array(accepted.length);
+  const visited = new Uint8Array(accepted.length);
+  const queue = [];
+  for (let start = 0; start < accepted.length; start += 1) {
+    if (!accepted[start] || visited[start]) continue;
+    queue.length = 0;
+    queue.push(start);
+    visited[start] = 1;
+    for (let cursor = 0; cursor < queue.length; cursor += 1) {
+      const index = queue[cursor];
+      const x = index % width;
+      const y = Math.floor(index / width);
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          if (offsetX === 0 && offsetY === 0) continue;
+          const nextX = x + offsetX;
+          const nextY = y + offsetY;
+          if (nextX < 0 || nextX >= width || nextY < 0 || nextY >= height) {
+            continue;
+          }
+          const nextIndex = nextY * width + nextX;
+          if (accepted[nextIndex] && !visited[nextIndex]) {
+            visited[nextIndex] = 1;
+            queue.push(nextIndex);
+          }
+        }
+      }
+    }
+    if (queue.length >= minimumSize) {
+      for (const index of queue) filtered[index] = 1;
+    }
+  }
+  return filtered;
+}
+
+function selectSpacedEdges(
+  accepted,
+  strengths,
+  width,
+  height,
+  maximum,
+  spacingRadius,
+) {
+  const candidates = [];
+  for (let index = 0; index < accepted.length; index += 1) {
+    if (accepted[index]) candidates.push(index);
+  }
+  candidates.sort((first, second) => strengths[second] - strengths[first]);
+  if (spacingRadius <= 0) return candidates.slice(0, maximum);
+
+  const blocked = new Uint8Array(accepted.length);
+  const selected = [];
+  for (const index of candidates) {
+    if (blocked[index]) continue;
+    selected.push(index);
+    if (selected.length >= maximum) break;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    for (let offsetY = -spacingRadius; offsetY <= spacingRadius; offsetY += 1) {
+      for (let offsetX = -spacingRadius; offsetX <= spacingRadius; offsetX += 1) {
+        const nextX = x + offsetX;
+        const nextY = y + offsetY;
+        if (nextX >= 0 && nextX < width && nextY >= 0 && nextY < height) {
+          blocked[nextY * width + nextX] = 1;
+        }
+      }
+    }
+  }
+  return selected;
+}
+
+function getDetailPreset(detail) {
+  return DETAIL_PRESETS[detail] ?? DETAIL_PRESETS.standard;
+}
+
 export function buildOutlineSegments(pixelBuffer, options = {}) {
   const { data, width, height } = pixelBuffer;
   if (!data || width < 8 || height < 8 || data.length < width * height * 4) {
     throw new Error("插画像素数据无效");
   }
 
+  const preset = getDetailPreset(options.detail);
   const luminance = new Float32Array(width * height);
   const visibleLuminance = [];
   for (let y = 0; y < height; y += 1) {
@@ -230,20 +338,31 @@ export function buildOutlineSegments(pixelBuffer, options = {}) {
     options.mask,
   );
   const edgeStrengths = [...suppressed].filter((value) => value > 0);
-  const highThreshold = Math.max(70, percentile(edgeStrengths, 0.82));
-  const accepted = connectWeakEdges(
+  const highThreshold = Math.max(
+    70,
+    percentile(edgeStrengths, preset.highQuantile),
+  );
+  const connected = connectWeakEdges(
     suppressed,
     width,
     height,
     highThreshold,
-    highThreshold * 0.46,
+    highThreshold * preset.lowThresholdRatio,
   );
-  const candidates = [];
-  for (let index = 0; index < accepted.length; index += 1) {
-    if (accepted[index]) candidates.push(index);
-  }
-  candidates.sort((first, second) => suppressed[second] - suppressed[first]);
-  const selected = candidates.slice(0, options.maxSegments || MAX_SEGMENTS);
+  const accepted = removeSmallComponents(
+    connected,
+    width,
+    height,
+    preset.minComponentSize,
+  );
+  const selected = selectSpacedEdges(
+    accepted,
+    suppressed,
+    width,
+    height,
+    Math.max(1, Number(options.maxSegments) || preset.maxSegments),
+    preset.spacingRadius,
+  );
   selected.sort((first, second) => first - second);
 
   const canvasAspect = Math.max(0.5, Number(options.canvasAspect) || 4 / 3);
@@ -259,15 +378,15 @@ export function buildOutlineSegments(pixelBuffer, options = {}) {
     const gradientX = gradientsX[index];
     const gradientY = gradientsY[index];
     const magnitude = Math.max(1, Math.hypot(gradientX, gradientY));
-    const tangentX = -gradientY / magnitude * 0.8;
-    const tangentY = gradientX / magnitude * 0.8;
+    const tangentX = -gradientY / magnitude * preset.tangentHalfLength;
+    const tangentY = gradientX / magnitude * preset.tangentHalfLength;
     segments.push({
       x0: clamp(targetLeft + (x - tangentX) / width * targetWidth, 0, 1),
       y0: clamp(targetTop + (y - tangentY) / height * targetHeight, 0, 1),
       x1: clamp(targetLeft + (x + tangentX) / width * targetWidth, 0, 1),
       y1: clamp(targetTop + (y + tangentY) / height * targetHeight, 0, 1),
       color: "#26383d",
-      size: 2,
+      size: preset.brushSize,
       tool: "brush",
     });
   }
@@ -292,11 +411,15 @@ export async function extractCardOutline(imageUrl, options = {}) {
   });
 
   const layout = getCardArtLayout(options.cardType);
+  const preset = getDetailPreset(options.detail);
   const cropWidth = Math.max(1, Math.round(image.naturalWidth * layout.width));
   const cropHeight = Math.max(1, Math.round(image.naturalHeight * layout.height));
-  const gridHeight = Math.max(72, Math.round(GRID_WIDTH * cropHeight / cropWidth));
+  const gridHeight = Math.max(
+    64,
+    Math.round(preset.gridWidth * cropHeight / cropWidth),
+  );
   const canvas = document.createElement("canvas");
-  canvas.width = GRID_WIDTH;
+  canvas.width = preset.gridWidth;
   canvas.height = gridHeight;
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("当前浏览器无法分析插画");

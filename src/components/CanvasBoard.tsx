@@ -43,6 +43,9 @@ export function CanvasBoard({
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(7);
   const [tool, setTool] = useState<"brush" | "eraser">("brush");
+  const [assistDetail, setAssistDetail] = useState<
+    "simple" | "standard" | "detailed"
+  >("standard");
   const [assistState, setAssistState] = useState<"idle" | "loading" | "done">("idle");
   canDrawRef.current = canDraw;
   roundKeyRef.current = roundKey;
@@ -228,6 +231,7 @@ export function CanvasBoard({
       const result = await extractCardOutline(referenceImageUrl, {
         cardType: referenceCardType,
         canvasAspect: canvas.clientWidth / Math.max(1, canvas.clientHeight),
+        detail: assistDetail,
       });
       if (
         run !== assistRunRef.current ||
@@ -302,19 +306,34 @@ export function CanvasBoard({
             {tool === "eraser" ? "继续画" : "橡皮"}
           </button>
           {referenceImageUrl && (
-            <button
-              className={`tool-button assist ${assistState === "done" ? "active" : ""}`}
-              disabled={assistState !== "idle"}
-              onClick={addOutlineAssist}
-              title="分析卡牌类型对应的插画区域并生成简化轮廓"
-              type="button"
-            >
-              {assistState === "loading"
-                ? "分析插画中"
-                : assistState === "done"
-                  ? "轮廓已添加"
-                  : "轮廓辅助"}
-            </button>
+            <div className="assist-control">
+              <select
+                aria-label="轮廓细节"
+                disabled={assistState !== "idle"}
+                onChange={(event) => setAssistDetail(
+                  event.target.value as "simple" | "standard" | "detailed",
+                )}
+                title="选择自动轮廓保留的细节数量"
+                value={assistDetail}
+              >
+                <option value="simple">简洁</option>
+                <option value="standard">标准</option>
+                <option value="detailed">细致</option>
+              </select>
+              <button
+                className={`tool-button assist ${assistState === "done" ? "active" : ""}`}
+                disabled={assistState !== "idle"}
+                onClick={addOutlineAssist}
+                title="分析卡牌类型对应的插画区域并生成简化轮廓"
+                type="button"
+              >
+                {assistState === "loading"
+                  ? "分析中"
+                  : assistState === "done"
+                    ? "已添加"
+                    : "轮廓辅助"}
+              </button>
+            </div>
           )}
           <button className="tool-button danger" onClick={clearCanvas} type="button">
             清屏

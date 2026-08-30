@@ -9,6 +9,7 @@ export interface OutlinePixelBuffer {
 export interface OutlineOptions {
   canvasAspect?: number;
   cardType?: string;
+  detail?: "simple" | "standard" | "detailed";
   mask?: "ellipse" | "rounded";
   maxSegments?: number;
 }
