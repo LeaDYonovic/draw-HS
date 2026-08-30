@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -22,10 +23,27 @@ test("loads the supplied word bank without empty or duplicate entries", () => {
     path.join(root, "collectible_cards_zhCN.names.txt"),
   );
 
-  assert.equal(words.length, 5777);
+  assert.equal(words.length, 5993);
   assert.equal(new Set(words).size, words.length);
   assert.ok(words.includes("霜之哀伤"));
   assert.ok(words.includes("炫晶小熊"));
+});
+
+test("records the source version for the generated card catalog", () => {
+  const metadata = JSON.parse(
+    fs.readFileSync(
+      path.join(root, "collectible_cards_zhCN.metadata.json"),
+      "utf8",
+    ),
+  );
+
+  assert.equal(
+    metadata.sourceUrl,
+    "https://api.hearthstonejson.com/v1/latest/zhCN/cards.collectible.json",
+  );
+  assert.ok(metadata.sourceRecords > metadata.catalogRecords);
+  assert.equal(metadata.catalogRecords, 5993);
+  assert.ok(Number.isFinite(Date.parse(metadata.lastModified)));
 });
 
 test("normalizes spacing and punctuation in guesses", () => {
@@ -85,7 +103,7 @@ test("searches card JSON by name and exact combat stats without duplicate names"
     wordLength: 4,
     cost: 1,
     attack: 1,
-    health: 2,
+    health: 1,
   });
   const reprints = searchCards(cards, {
     name: "大法师安东尼达斯",
@@ -109,12 +127,13 @@ test("searches card JSON by name and exact combat stats without duplicate names"
     health: null,
   }, 40, 40);
 
-  assert.equal(cards.length, 5777);
+  assert.equal(cards.length, 5993);
   assert.equal(new Set(cards.map((card) => card.name)).size, cards.length);
   const crystalspineCub = matched.results.find((card) => card.name === "炫晶小熊");
   assert.ok(crystalspineCub);
   assert.equal(crystalspineCub.id, "CATA_130");
   assert.equal(crystalspineCub.rarity, "COMMON");
+  assert.equal(crystalspineCub.health, 1);
   assert.equal(crystalspineCub.wordLength, 4);
   assert.equal(crystalspineCub.imageUrl, "/api/cards/images/CATA_130.png");
   assert.equal(reprints.total, 1);

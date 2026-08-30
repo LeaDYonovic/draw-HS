@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "cards:build": "node scripts/build-card-catalog.mjs",
+    "cards:update": "node scripts/update-card-assets.mjs",
     "dev": "concurrently -k -n server,web -c yellow,cyan \"node --watch server/index.mjs\" \"vite\"",
     "build": "tsc --noEmit && vite build",
     "check": "npm test && npm run build",

@@ -26,7 +26,14 @@ const cardCatalogPath = path.join(
   rootDir,
   "collectible_cards_zhCN.full.json",
 );
+const cardCatalogMetadataPath = path.join(
+  rootDir,
+  "collectible_cards_zhCN.metadata.json",
+);
 const cardCatalog = loadCardCatalog(cardCatalogPath);
+const cardCatalogMetadata = fs.existsSync(cardCatalogMetadataPath)
+  ? JSON.parse(fs.readFileSync(cardCatalogMetadataPath, "utf8"))
+  : {};
 const WORD_BANK_DEFINITIONS = [
   { id: "all", label: "全部卡牌", group: "总览", matches: () => true },
   { id: "legendary", label: "传说卡牌", group: "按稀有度", matches: (card) => card.rarity === "LEGENDARY" },
@@ -155,12 +162,14 @@ app.get("/api/health", (_request, response) => {
     words: defaultWordBank.words.length,
     cards: cardCatalog.length,
     wordBanks: wordBanks.size,
+    cardDataLastModified: cardCatalogMetadata.lastModified ?? null,
   });
 });
 app.get("/api/word-bank", (_request, response) => {
   response.json({
     count: defaultWordBank.words.length,
     source: path.basename(cardCatalogPath),
+    lastModified: cardCatalogMetadata.lastModified ?? null,
     options: publicWordBankOptions,
   });
 });
@@ -215,9 +224,8 @@ app.get("/api/cards/images/:fileName", async (request, response) => {
     return;
   }
 
-  const webpPath = path.join(cardImageDir, `${cardId}.webp`);
   const pngPath = path.join(cardImageDir, `${cardId}.png`);
-  let imagePath = fs.existsSync(webpPath) ? webpPath : pngPath;
+  let imagePath = resolveCardImage(cardId) ?? pngPath;
   if (
     !fs.existsSync(imagePath) &&
     httpRateLimited(request, "card-image-fetch", 240, 60_000)
@@ -227,7 +235,7 @@ app.get("/api/cards/images/:fileName", async (request, response) => {
   }
   try {
     await ensureCardImage(cardId, pngPath);
-    imagePath = fs.existsSync(webpPath) ? webpPath : pngPath;
+    imagePath = resolveCardImage(cardId) ?? pngPath;
     response.set("Cache-Control", "public, max-age=604800, immutable");
     response.type(path.extname(imagePath) === ".webp" ? "webp" : "png").sendFile(imagePath);
   } catch (error) {
@@ -672,6 +680,16 @@ function roundDurationMs(room) {
   return Number.isFinite(ROUND_TIME_OVERRIDE_MS) && ROUND_TIME_OVERRIDE_MS >= 100
     ? ROUND_TIME_OVERRIDE_MS
     : room.settings.roundTime * 1000;
+}
+
+function resolveCardImage(cardId) {
+  const candidates = ["webp", "png"]
+    .map((extension) => path.join(cardImageDir, `${cardId}.${extension}`))
+    .filter((candidate) => fs.existsSync(candidate));
+  if (candidates.length < 2) return candidates[0] ?? null;
+  return candidates.toSorted(
+    (first, second) => fs.statSync(second).mtimeMs - fs.statSync(first).mtimeMs,
+  )[0];
 }
 
 async function withImageFetchSlot(task) {

@@ -16,15 +16,15 @@
 - 断线后凭本地会话令牌恢复房间
 - 桌面和移动端响应式界面
 
-词库包含 5,777 个不重复的中文可收藏卡牌名，覆盖普通、稀有、史诗、传说和基础免费卡。卡牌 JSON 中的同名重印会优先选择有本地图片且仍有效的版本，避免不同版本的属性和图片混用。
+词库包含 5,993 个不重复的中文可收藏卡牌名，覆盖普通、稀有、史诗、传说和基础免费卡。数据来自 HearthstoneJSON 最新中文可收藏卡牌目录，并排除英雄皮肤；同名重印会优先选择当前核心版本，避免不同版本的属性和图片混用。
 
-如需从 Bugstone 全卡数据重新生成精简目录，并同步本地卡图缓存：
+下载最新卡牌 JSON、差量补齐图片并重新生成目录：
 
 ```powershell
-npm run cards:build -- "E:\炉石素材\Bugstone-2026-08-30\fbigame\all_cards_20260323\cards_data.json" "collectible_cards_zhCN.full.json" "card-images"
+npm run cards:update -- "E:\炉石素材\HearthstoneJSON-latest" "card-images"
 ```
 
-`card-images` 不进入 Git；服务端会优先返回本地 WebP，缺图时再从 HearthstoneJSON 回源。
+`card-images` 不进入 Git；更新脚本会保存最新源 JSON 和完整图片归档，服务端仍会在本地缺图时从 HearthstoneJSON 回源。
 
 ## 本地运行
 

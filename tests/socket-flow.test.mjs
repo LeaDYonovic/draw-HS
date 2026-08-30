@@ -344,7 +344,7 @@ test("a room word bank limits both chosen cards and search results", async (t) =
 
   assert.equal(choosing.settings.wordBankId, "common");
   assert.equal(choosing.wordBankName, "普通卡牌");
-  assert.equal(choosing.wordBankCount, 2114);
+  assert.equal(choosing.wordBankCount, 2242);
   assert.ok(choosing.round.options.every((name) => commonNames.has(name)));
   assert.ok(commonNames.has(answer));
   assert.equal(drawing.round.questionType, "search");
@@ -949,9 +949,12 @@ test("socket origins, lobby membership, and direct-client IP limits are enforced
   assert.equal(spoofedAddress.status, 429);
 });
 
-test("cached card images do not consume the upstream fetch allowance", async (t) => {
+test("the newest cached card image wins without consuming the upstream allowance", async (t) => {
   const imageDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "hearth-draw-images-"));
-  await fs.writeFile(path.join(imageDirectory, "AV_204.png"), Buffer.alloc(1_024, 1));
+  const webpPath = path.join(imageDirectory, "AV_204.webp");
+  await fs.writeFile(webpPath, Buffer.alloc(1_024, 1));
+  await fs.utimes(webpPath, new Date(0), new Date(0));
+  await fs.writeFile(path.join(imageDirectory, "AV_204.png"), Buffer.alloc(1_024, 2));
   t.after(() => fs.rm(imageDirectory, { force: true, recursive: true }));
 
   const port = await getFreePort();
@@ -970,6 +973,8 @@ test("cached card images do not consume the upstream fetch allowance", async (t)
   for (let attempt = 0; attempt < 250; attempt += 1) {
     const response = await fetch(`${url}/api/cards/images/AV_204.png`);
     assert.equal(response.status, 200);
-    await response.arrayBuffer();
+    const image = new Uint8Array(await response.arrayBuffer());
+    assert.equal(image[0], 2);
+    assert.equal(response.headers.get("content-type"), "image/png");
   }
 });

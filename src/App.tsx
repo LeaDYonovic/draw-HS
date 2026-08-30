@@ -259,7 +259,7 @@ function Home({
   return (
     <div className="home-layout page-enter">
       <section className="hero-copy">
-        <div className="eyebrow">5,777 张炉石卡牌 · 一块实时画板</div>
+        <div className="eyebrow">5,993 张炉石卡牌 · 一块实时画板</div>
         <div className="brand-lockup">
           <div className="brand-gem"><span /></div>
           <div>
