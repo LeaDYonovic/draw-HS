@@ -486,16 +486,20 @@ textarea:focus {
 
 .public-lobby-grid {
   display: grid;
-  grid-template-columns: 250px minmax(380px, 1fr) 360px;
+  grid-template-columns: minmax(520px, 1fr) 360px;
+  grid-template-rows: minmax(320px, 1fr) 220px;
+  grid-template-areas:
+    "rooms actions"
+    "chat roster";
   align-items: stretch;
   gap: 14px;
+  height: min(650px, calc(100vh - 190px));
+  min-height: 540px;
 }
 
 .online-roster,
-.lobby-chat-panel,
-.lobby-room-column {
-  height: min(650px, calc(100vh - 190px));
-  min-height: 480px;
+.lobby-chat-panel {
+  min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(229, 197, 132, 0.24);
   border-radius: 11px;
@@ -504,19 +508,20 @@ textarea:focus {
 }
 
 .lobby-room-column {
-  min-height: 480px;
-  display: grid;
-  grid-template-rows: minmax(220px, 1fr) auto;
-  gap: 14px;
-  overflow: visible;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  display: contents;
 }
 
-.online-roster { display: grid; grid-template-rows: auto minmax(0, 1fr); }
-.lobby-chat-panel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.online-roster {
+  grid-area: roster;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.lobby-chat-panel {
+  grid-area: chat;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
 
 .panel-title {
   padding: 15px 16px 12px;
@@ -568,6 +573,7 @@ textarea:focus {
 .presence-dot.spectating { background: #6ba9cf; box-shadow: 0 0 9px rgba(107, 169, 207, 0.56); }
 
 .room-directory {
+  grid-area: rooms;
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -666,6 +672,7 @@ textarea:focus {
 .listed-room-actions button:disabled { cursor: not-allowed; filter: grayscale(0.55); opacity: 0.5; }
 
 .lobby-room-actions {
+  grid-area: actions;
   align-self: start;
   padding: 18px;
   border-radius: 9px 23px 10px 20px;
@@ -2029,13 +2036,9 @@ textarea:focus {
   .feature-strip { justify-content: center; }
   .entry-card { width: min(480px, 100%); margin: 0 auto; }
 
-  .public-lobby-grid { grid-template-columns: 230px minmax(0, 1fr); }
-  .lobby-room-column {
-    grid-column: 1 / -1;
-    height: auto;
-    min-height: 0;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
-    grid-template-rows: 400px;
+  .public-lobby-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+    grid-template-rows: minmax(320px, 1fr) 220px;
   }
 
   .lobby-grid { grid-template-columns: 250px 1fr; gap: 28px; }
@@ -2070,11 +2073,18 @@ textarea:focus {
   .public-lobby-page { padding-top: 18px; }
   .lobby-self > span { display: none; }
   .public-lobby-heading { margin: 34px 0 19px; align-items: center; }
-  .public-lobby-grid { grid-template-columns: 1fr; }
-  .online-roster,
-  .lobby-chat-panel { height: 430px; min-height: 0; }
-  .online-roster { height: 330px; }
-  .lobby-room-column { grid-column: auto; grid-template-columns: 1fr; grid-template-rows: 400px auto; }
+  .public-lobby-grid {
+    height: auto;
+    min-height: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: 380px auto 250px 220px;
+    grid-template-areas:
+      "rooms"
+      "actions"
+      "chat"
+      "roster";
+  }
+  .lobby-room-actions { width: 100%; }
 
   .lobby-page { padding-top: 20px; }
   .lobby-grid { margin-top: 28px; grid-template-columns: 1fr; }
