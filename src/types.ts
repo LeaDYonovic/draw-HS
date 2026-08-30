@@ -13,7 +13,7 @@ export interface GameSettings {
   roundTime: number;
   maxPlayers: number;
   answerMode: AnswerMode;
-  wordBankId: string;
+  wordBankIds: string[];
 }
 
 export interface WordBankOption {
@@ -109,6 +109,7 @@ export interface RoomState {
   selfId: string;
   settings: GameSettings;
   wordBankCount: number;
+  wordBankChoiceCount: number;
   wordBankName: string;
   wordBankOptions: WordBankOption[];
   players: PlayerState[];

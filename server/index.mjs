@@ -74,6 +74,12 @@ const wordBanks = new Map(WORD_BANK_DEFINITIONS.map((definition) => {
   }];
 }));
 const defaultWordBank = wordBanks.get("all");
+const wordBankDefinitionById = new Map(
+  WORD_BANK_DEFINITIONS
+    .filter((definition) => definition.id !== "all")
+    .map((definition) => [definition.id, definition]),
+);
+const compositeWordBanks = new Map();
 const publicWordBankOptions = [...wordBanks.values()].map((bank) => ({
   id: bank.id,
   label: bank.label,
@@ -198,7 +204,10 @@ app.get("/api/cards/search", (request, response) => {
     health: parseCardStat(request.query.health),
   };
   const page = parseSearchPage(request.query.page);
-  const bank = wordBanks.get(String(request.query.wordBank ?? "all"));
+  const requestedWordBankIds = parseRequestedWordBankIds(request.query);
+  const bank = requestedWordBankIds === null
+    ? null
+    : resolveWordBank(requestedWordBankIds);
   if (
     !bank ||
     page === undefined ||
@@ -569,7 +578,76 @@ function chatRateLimited(socket, channel) {
 }
 
 function getRoomWordBank(room) {
-  return wordBanks.get(room?.settings?.wordBankId) ?? defaultWordBank;
+  return resolveWordBank(room?.settings?.wordBankIds);
+}
+
+function normalizeWordBankIds(value) {
+  const requested = Array.isArray(value)
+    ? value
+    : typeof value === "string" ? value.split(",") : [];
+  const requestedIds = new Set(
+    requested.map((id) => String(id).trim()).filter((id) => id && id !== "all"),
+  );
+  return WORD_BANK_DEFINITIONS
+    .map((definition) => definition.id)
+    .filter((id) => id !== "all" && requestedIds.has(id));
+}
+
+function validWordBankIds(value) {
+  const requested = Array.isArray(value)
+    ? value
+    : typeof value === "string" ? value.split(",") : [];
+  return requested.every((id) => {
+    const normalizedId = String(id).trim();
+    return !normalizedId || normalizedId === "all" || wordBankDefinitionById.has(normalizedId);
+  });
+}
+
+function parseRequestedWordBankIds(query) {
+  const raw = query.wordBanks ?? query.wordBank ?? "all";
+  const requested = Array.isArray(raw) ? raw : String(raw).split(",");
+  const invalid = requested
+    .map((id) => String(id).trim())
+    .filter((id) => id && id !== "all" && !wordBankDefinitionById.has(id));
+  return invalid.length > 0 ? null : normalizeWordBankIds(requested);
+}
+
+function resolveWordBank(value) {
+  const ids = normalizeWordBankIds(value);
+  if (ids.length === 0) return defaultWordBank;
+  if (ids.length === 1) return wordBanks.get(ids[0]) ?? defaultWordBank;
+
+  const key = ids.join(",");
+  const cached = compositeWordBanks.get(key);
+  if (cached) return cached;
+
+  const definitionsByGroup = new Map();
+  for (const id of ids) {
+    const definition = wordBankDefinitionById.get(id);
+    if (!definition) continue;
+    const definitions = definitionsByGroup.get(definition.group) ?? [];
+    definitions.push(definition);
+    definitionsByGroup.set(definition.group, definitions);
+  }
+  const cards = cardCatalog.filter((card) =>
+    [...definitionsByGroup.values()].every((definitions) =>
+      definitions.some((definition) => definition.matches(card))
+    )
+  );
+  const words = cards.map((card) => card.name);
+  const bank = {
+    id: key,
+    label: [...definitionsByGroup.values()]
+      .map((definitions) => definitions.map((definition) => definition.label).join("、"))
+      .join(" · "),
+    group: "组合筛选",
+    cards,
+    words,
+    choiceWords: getChoiceEligibleWords(words, CHOICE_OPTION_COUNT),
+    names: new Set(words),
+  };
+  compositeWordBanks.set(key, bank);
+  return bank;
 }
 
 function createRoom(host, details = {}) {
@@ -587,7 +665,7 @@ function createRoom(host, details = {}) {
       roundTime: 60,
       maxPlayers: 8,
       answerMode: "mixed",
-      wordBankId: "all",
+      wordBankIds: [],
     },
     messages: [],
     startOrder: [],
@@ -791,6 +869,7 @@ function publicState(room, viewerId) {
     selfId: viewerId,
     settings: room.settings,
     wordBankCount: selectedWordBank.words.length,
+    wordBankChoiceCount: selectedWordBank.choiceWords.length,
     wordBankName: selectedWordBank.label,
     wordBankOptions: publicWordBankOptions,
     players: [...room.players.values()]
@@ -1180,12 +1259,17 @@ function removeOrDeactivatePlayer(room, player, reason = "离开了房间") {
 }
 
 function validateSettings(input, current) {
-  const requestedWordBankId = String(input?.wordBankId ?? "");
-  const currentWordBankId = String(current?.wordBankId ?? "");
-  const wordBankId = wordBanks.has(requestedWordBankId)
-    ? requestedWordBankId
-    : wordBanks.has(currentWordBankId) ? currentWordBankId : "all";
-  const selectedWordBank = wordBanks.get(wordBankId) ?? defaultWordBank;
+  const hasRequestedWordBanks = Array.isArray(input?.wordBankIds) ||
+    typeof input?.wordBankId === "string";
+  const requestedWordBankIds = Array.isArray(input?.wordBankIds)
+    ? input.wordBankIds
+    : input?.wordBankId;
+  if (hasRequestedWordBanks && !validWordBankIds(requestedWordBankIds)) return null;
+  const wordBankIds = hasRequestedWordBanks
+    ? normalizeWordBankIds(requestedWordBankIds)
+    : normalizeWordBankIds(current?.wordBankIds);
+  const selectedWordBank = resolveWordBank(wordBankIds);
+  if (selectedWordBank.words.length === 0) return null;
   let answerMode = ["mixed", "choice", "search"].includes(input?.answerMode)
     ? input.answerMode
     : current.answerMode;
@@ -1204,7 +1288,7 @@ function validateSettings(input, current) {
       Math.min(12, Number(input?.maxPlayers) || current.maxPlayers),
     )),
     answerMode,
-    wordBankId,
+    wordBankIds,
   };
 }
 
@@ -1471,7 +1555,12 @@ io.on("connection", (socket) => {
       respond(callback, { ok: false, error: "游戏中不能修改设置" });
       return;
     }
-    context.room.settings = validateSettings(payload, context.room.settings);
+    const settings = validateSettings(payload, context.room.settings);
+    if (!settings) {
+      respond(callback, { ok: false, error: "该筛选组合没有可用卡牌，请调整条件" });
+      return;
+    }
+    context.room.settings = settings;
     emitState(context.room);
     respond(callback, { ok: true });
   });

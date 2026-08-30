@@ -897,21 +897,109 @@ textarea:focus {
   font-size: 0.72rem;
 }
 
-.word-bank-picker > label {
-  color: #9dbab7;
-  font-size: 0.72rem;
-}
-
-.word-bank-picker select {
+.word-bank-all {
   width: 100%;
-  padding: 11px 12px;
-  border-color: rgba(224, 192, 129, 0.34);
-  color: #253f43;
-  background: #f3eddf;
+  padding: 9px 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(170, 205, 197, 0.22);
+  border-radius: 8px;
+  color: #b8cfca;
+  background: rgba(8, 35, 41, 0.68);
+  font: inherit;
+  font-size: 0.76rem;
   font-weight: 800;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
 }
 
-.word-bank-picker select:disabled { opacity: 0.78; }
+.word-bank-all small,
+.word-bank-filter-grid small {
+  color: #7fa19f;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.word-bank-all.active,
+.word-bank-filter-grid label.active {
+  border-color: rgba(242, 209, 124, 0.58);
+  color: #ffe8a7;
+  background: linear-gradient(135deg, rgba(142, 88, 28, 0.38), rgba(20, 68, 69, 0.78));
+  box-shadow: inset 0 0 0 1px rgba(255, 225, 150, 0.08);
+}
+
+.word-bank-all.active small,
+.word-bank-filter-grid label.active small { color: #e2c878; }
+.word-bank-all:disabled { cursor: default; opacity: 0.72; }
+
+.word-bank-filter-groups {
+  display: grid;
+  gap: 9px;
+}
+
+.word-bank-filter-groups fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.word-bank-filter-groups legend {
+  margin-bottom: 6px;
+  color: #87aaa6;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.word-bank-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.word-bank-filter-grid label {
+  position: relative;
+  min-width: 0;
+  padding: 8px 9px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(170, 205, 197, 0.16);
+  border-radius: 7px;
+  color: #adc5c1;
+  background: rgba(4, 24, 30, 0.46);
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.word-bank-filter-grid label:hover {
+  border-color: rgba(242, 209, 124, 0.34);
+  color: #f2dfb1;
+}
+
+.word-bank-filter-grid label:focus-within {
+  outline: 2px solid rgba(242, 209, 124, 0.58);
+  outline-offset: 2px;
+}
+
+.word-bank-filter-grid input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.word-bank-filter-grid fieldset:disabled label,
+.word-bank-filter-groups fieldset:disabled label {
+  cursor: default;
+  opacity: 0.72;
+}
 
 .word-bank-picker-summary {
   padding-top: 2px;

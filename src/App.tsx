@@ -554,13 +554,12 @@ function RoomLobby({
 }) {
   const [roomName, setRoomName] = useState(room.name);
   const [roomRules, setRoomRules] = useState(room.rules);
+  const [updatingWordBank, setUpdatingWordBank] = useState(false);
   const seatedPlayers = room.players.filter((player) => !player.isSpectator);
   const humanPlayers = seatedPlayers.filter((player) => !player.isBot);
-  const selectedWordBank = room.wordBankOptions.find(
-    (option) => option.id === room.settings.wordBankId,
-  ) ?? room.wordBankOptions[0];
-  const wordBankGroups = ["总览", "按稀有度", "按类型"];
-  const supportsChoice = (selectedWordBank?.choiceCount ?? 0) >= 3;
+  const selectedWordBankIds = room.settings.wordBankIds;
+  const wordBankGroups = ["按稀有度", "按类型"];
+  const supportsChoice = room.wordBankChoiceCount >= 3;
 
   useEffect(() => {
     setRoomName(room.name);
@@ -573,6 +572,22 @@ function RoomLobby({
       ...patch,
     });
     if (!response.ok) onError(response.error);
+  };
+
+  const updateWordBanks = async (wordBankIds: string[]) => {
+    setUpdatingWordBank(true);
+    try {
+      await updateSetting({ wordBankIds });
+    } finally {
+      setUpdatingWordBank(false);
+    }
+  };
+
+  const toggleWordBank = (id: string) => {
+    const nextIds = selectedWordBankIds.includes(id)
+      ? selectedWordBankIds.filter((selectedId) => selectedId !== id)
+      : [...selectedWordBankIds, id];
+    void updateWordBanks(nextIds);
   };
 
   const updateRoomDetails = async (event: React.FormEvent) => {
@@ -631,34 +646,50 @@ function RoomLobby({
                   <span className="section-kicker">题目范围</span>
                   <h3>选择词库</h3>
                 </div>
-                <span>{selectedWordBank?.count ?? room.wordBankCount} 张</span>
+                <span>{room.wordBankCount} 张</span>
               </div>
-              <label htmlFor="word-bank">本局使用</label>
-              <select
-                disabled={!room.isHost}
-                id="word-bank"
-                onChange={(event) => updateSetting({ wordBankId: event.target.value })}
-                value={room.settings.wordBankId}
+              <button
+                aria-pressed={selectedWordBankIds.length === 0}
+                className={`word-bank-all ${selectedWordBankIds.length === 0 ? "active" : ""}`}
+                disabled={!room.isHost || updatingWordBank}
+                onClick={() => updateWordBanks([])}
+                type="button"
               >
+                <span>全部卡牌</span>
+                <small>{room.wordBankOptions[0]?.count ?? room.wordBankCount}</small>
+              </button>
+              <div className="word-bank-filter-groups">
                 {wordBankGroups.map((group) => (
-                  <optgroup key={group} label={group}>
-                    {room.wordBankOptions
-                      .filter((option) => option.group === group)
-                      .map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}（{option.count}）
-                        </option>
-                      ))}
-                  </optgroup>
+                  <fieldset disabled={!room.isHost || updatingWordBank} key={group}>
+                    <legend>{group}</legend>
+                    <div className="word-bank-filter-grid">
+                      {room.wordBankOptions
+                        .filter((option) => option.group === group)
+                        .map((option) => {
+                          const selected = selectedWordBankIds.includes(option.id);
+                          return (
+                            <label className={selected ? "active" : ""} key={option.id}>
+                              <input
+                                checked={selected}
+                                onChange={() => toggleWordBank(option.id)}
+                                type="checkbox"
+                              />
+                              <span>{option.label}</span>
+                              <small>{option.count}</small>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </fieldset>
                 ))}
-              </select>
+              </div>
               <div className="word-bank-picker-summary">
-                <strong>{selectedWordBank?.label ?? room.wordBankName}</strong>
-                <span>{selectedWordBank?.choiceCount ?? 0} 张支持十选一</span>
+                <strong>{room.wordBankName}</strong>
+                <span>{room.wordBankChoiceCount} 张支持十选一</span>
               </div>
               <small>
                 {room.isHost
-                  ? "切换后，选题、选择题和搜索题都会限定在该词库。"
+                  ? "同组条件取并集，不同组取交集；选题和答题都会使用组合后的范围。"
                   : `房主已选择${room.wordBankName}。`}
               </small>
             </section>
@@ -1010,11 +1041,11 @@ const EMPTY_SEARCH_FILTERS: SearchFilters = {
 
 function SearchAnswerPanel({
   round,
-  wordBankId,
+  wordBankIds,
   onError,
 }: {
   round: NonNullable<RoomState["round"]>;
-  wordBankId: string;
+  wordBankIds: string[];
   onError: (message?: string) => void;
 }) {
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_SEARCH_FILTERS);
@@ -1026,6 +1057,7 @@ function SearchAnswerPanel({
   const [loading, setLoading] = useState(false);
   const [selectedName, setSelectedName] = useState(round.selectedAnswerName);
   const reportSearchError = useEffectEvent((message: string) => onError(message));
+  const wordBankKey = wordBankIds.join(",");
 
   useEffect(() => {
     setSelectedName(round.selectedAnswerName);
@@ -1039,7 +1071,7 @@ function SearchAnswerPanel({
       if (value.trim()) params.set(key, value.trim());
     }
     params.set("page", String(page));
-    params.set("wordBank", wordBankId);
+    params.set("wordBanks", wordBankKey || "all");
 
     setLoading(true);
     fetch(`/api/cards/search?${params}`, { signal: controller.signal })
@@ -1061,7 +1093,7 @@ function SearchAnswerPanel({
       });
 
     return () => controller.abort();
-  }, [page, submittedFilters, wordBankId]);
+  }, [page, submittedFilters, wordBankKey]);
 
   const updateFilter = (field: keyof SearchFilters, value: string) => {
     setFilters((current) => ({ ...current, [field]: value }));
@@ -1203,7 +1235,7 @@ function GameSidebar({ room, onError }: { room: RoomState; onError: (message?: s
         round.questionType === "choice" ? (
           <ChoiceAnswerPanel onError={onError} round={round} />
         ) : (
-          <SearchAnswerPanel onError={onError} round={round} wordBankId={room.settings.wordBankId} />
+          <SearchAnswerPanel onError={onError} round={round} wordBankIds={room.settings.wordBankIds} />
         )
       ) : (
         <RoomChatPanel onError={onError} room={room} />
