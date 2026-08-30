@@ -6,10 +6,10 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
 import {
-  buildAnswerOptions,
+  buildCardAnswerOptions,
   calculateScore,
   countWordCharacters,
-  getChoiceEligibleWords,
+  getChoiceEligibleCards,
   loadCardCatalog,
   maskWord,
   normalizeGuess,
@@ -70,7 +70,8 @@ const WORD_BANK_DEFINITIONS = [
 const wordBanks = new Map(WORD_BANK_DEFINITIONS.map((definition) => {
   const cards = cardCatalog.filter(definition.matches);
   const words = cards.map((card) => card.name);
-  const choiceWords = getChoiceEligibleWords(words, CHOICE_OPTION_COUNT);
+  const choiceWords = getChoiceEligibleCards(cards, CHOICE_OPTION_COUNT)
+    .map((card) => card.name);
   return [definition.id, {
     id: definition.id,
     label: definition.label,
@@ -655,7 +656,8 @@ function resolveWordBank(value) {
     group: "组合筛选",
     cards,
     words,
-    choiceWords: getChoiceEligibleWords(words, CHOICE_OPTION_COUNT),
+    choiceWords: getChoiceEligibleCards(cards, CHOICE_OPTION_COUNT)
+      .map((card) => card.name),
     names: new Set(words),
   };
   compositeWordBanks.set(key, bank);
@@ -1151,7 +1153,11 @@ function startDrawing(room, word) {
     ? (crypto.randomInt(0, 2) === 0 ? "choice" : "search")
     : room.settings.answerMode;
   room.current.answerOptions = room.current.questionType === "choice"
-    ? buildAnswerOptions(getRoomWordBank(room).words, word, CHOICE_OPTION_COUNT)
+    ? buildCardAnswerOptions(
+      getRoomWordBank(room).cards,
+      cardByName.get(word) ?? word,
+      CHOICE_OPTION_COUNT,
+    )
     : [];
   room.current.answers.clear();
   room.current.correctPlayers.clear();

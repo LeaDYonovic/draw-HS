@@ -4,9 +4,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  buildCardAnswerOptions,
   buildAnswerOptions,
   calculateScore,
   countWordCharacters,
+  getChoiceEligibleCards,
   getChoiceEligibleWords,
   loadCardCatalog,
   loadWordBank,
@@ -83,6 +85,40 @@ test("builds 10 shuffled answers with exactly one correct option", () => {
   );
 });
 
+test("builds card distractors from the closest matching attribute pool", () => {
+  const answer = {
+    name: "目标零零",
+    type: "MINION",
+    cost: 3,
+    attack: 3,
+    health: 4,
+    cardClass: "MAGE",
+    rarity: "RARE",
+  };
+  const exactMatches = Array.from({ length: 12 }, (_, index) => ({
+    ...answer,
+    name: `同属${String(index).padStart(2, "0")}`,
+  }));
+  const unrelated = Array.from({ length: 12 }, (_, index) => ({
+    ...answer,
+    name: `异属${String(index).padStart(2, "0")}`,
+    type: "SPELL",
+    attack: null,
+    health: null,
+  }));
+  const cards = [answer, ...exactMatches, ...unrelated];
+  const options = buildCardAnswerOptions(cards, answer, 10);
+
+  assert.equal(options.length, 10);
+  assert.equal(new Set(options).size, 10);
+  assert.equal(options.filter((name) => name === answer.name).length, 1);
+  assert.ok(
+    options
+      .filter((name) => name !== answer.name)
+      .every((name) => exactMatches.some((card) => card.name === name)),
+  );
+});
+
 test("only choice words with enough same-length alternatives are eligible", () => {
   const commonWords = Array.from(
     { length: 10 },
@@ -92,6 +128,19 @@ test("only choice words with enough same-length alternatives are eligible", () =
   const eligible = getChoiceEligibleWords([...commonWords, ...rareWords], 10);
 
   assert.deepEqual(eligible, commonWords);
+});
+
+test("only cards with nine same-type and same-length distractors are eligible", () => {
+  const shared = Array.from({ length: 10 }, (_, index) => ({
+    name: `随从${String(index).padStart(2, "0")}`,
+    type: "MINION",
+  }));
+  const sparse = Array.from({ length: 9 }, (_, index) => ({
+    name: `法术${String(index).padStart(2, "0")}`,
+    type: "SPELL",
+  }));
+
+  assert.deepEqual(getChoiceEligibleCards([...shared, ...sparse], 10), shared);
 });
 
 test("searches card JSON by name and exact combat stats without duplicate names", () => {

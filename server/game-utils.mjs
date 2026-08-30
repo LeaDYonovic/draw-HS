@@ -106,6 +106,21 @@ export function getChoiceEligibleWords(words, count = 20) {
   );
 }
 
+export function getChoiceEligibleCards(cards, count = 10) {
+  const targetCount = Math.max(1, Math.round(count));
+  const groupSizes = new Map();
+
+  for (const card of cards) {
+    const key = `${card.type}\u0000${countWordCharacters(card.name)}`;
+    groupSizes.set(key, (groupSizes.get(key) ?? 0) + 1);
+  }
+
+  return cards.filter((card) => {
+    const key = `${card.type}\u0000${countWordCharacters(card.name)}`;
+    return (groupSizes.get(key) ?? 0) >= targetCount;
+  });
+}
+
 export function pickWords(words, count, excluded = []) {
   const excludedSet = new Set(excluded);
   const pool = words.filter((word) => !excludedSet.has(word));
@@ -143,6 +158,65 @@ export function buildAnswerOptions(words, answer, count = 20) {
     [options[index], options[swapIndex]] = [options[swapIndex], options[index]];
   }
 
+  return options;
+}
+
+export function buildCardAnswerOptions(cards, answer, count = 10) {
+  const targetCount = Math.max(1, Math.round(count));
+  const answerCard = typeof answer === "string"
+    ? cards.find((card) => normalizeGuess(card.name) === normalizeGuess(answer))
+    : answer;
+  if (!answerCard?.name) {
+    return buildAnswerOptions(
+      cards.map((card) => card.name).filter(Boolean),
+      String(answer?.name ?? answer ?? ""),
+      targetCount,
+    );
+  }
+
+  const answerName = answerCard.name;
+  const answerLength = countWordCharacters(answerName);
+  const candidates = cards.filter((card) =>
+    card?.name &&
+    normalizeGuess(card.name) !== normalizeGuess(answerName) &&
+    card.type === answerCard.type &&
+    countWordCharacters(card.name) === answerLength
+  );
+  const selectedNames = new Set([answerName]);
+  const distractors = [];
+  const same = (card, field) => card[field] === answerCard[field];
+  const tiers = [
+    (card) =>
+      ["cost", "attack", "health", "cardClass", "rarity"]
+        .every((field) => same(card, field)),
+    (card) => ["cost", "attack", "health"]
+      .every((field) => same(card, field)),
+    (card) =>
+      same(card, "cost") &&
+      (same(card, "attack") || same(card, "health")),
+    (card) => same(card, "cost"),
+    () => true,
+  ];
+
+  for (const matches of tiers) {
+    const pool = pickWords(
+      candidates.filter(matches).map((card) => card.name),
+      candidates.length,
+    );
+    for (const name of pool) {
+      if (selectedNames.has(name)) continue;
+      selectedNames.add(name);
+      distractors.push(name);
+      if (distractors.length >= targetCount - 1) break;
+    }
+    if (distractors.length >= targetCount - 1) break;
+  }
+
+  const options = [answerName, ...distractors];
+  for (let index = options.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [options[index], options[swapIndex]] = [options[swapIndex], options[index]];
+  }
   return options;
 }
 

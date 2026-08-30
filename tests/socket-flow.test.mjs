@@ -179,6 +179,15 @@ test("an answerer can change a numbered choice before timeout", async (t) => {
     drawing.round.answerOptions.filter((word) => word === answer).length,
     1,
   );
+  const correctCard = drawing.round.answerOptionCards.find(
+    (card) => card.name === answer,
+  );
+  assert.ok(correctCard);
+  assert.ok(
+    drawing.round.answerOptionCards.every(
+      (card) => card.type === correctCard.type,
+    ),
+  );
   assert.ok(
     drawing.round.answerOptions.every(
       (word) => [...word].length === drawing.round.wordLength,
