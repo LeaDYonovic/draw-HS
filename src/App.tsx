@@ -607,16 +607,31 @@ function RoomLobby({
       </header>
 
       <div className="lobby-grid">
-        <section className="tavern-card invite-panel">
-          <div className="eyebrow dark">你的房间号</div>
-          <div className="room-code-display">{room.code}</div>
-          <p>把房间号或邀请链接发给朋友；单人也可加入 AI 开始测试。</p>
-          <button className="secondary-button" onClick={shareRoom} type="button">分享邀请链接</button>
-          <div className="word-bank-seal">
-            <strong>{room.wordBankCount}</strong>
-            <span>个炉石题目已入库</span>
-          </div>
-        </section>
+        <aside className="room-lobby-left">
+          <section className="tavern-card invite-panel">
+            <div className="eyebrow dark">你的房间号</div>
+            <div className="room-code-display">{room.code}</div>
+            <p>把房间号或邀请链接发给朋友；单人也可加入 AI 开始测试。</p>
+            <button className="secondary-button" onClick={shareRoom} type="button">分享邀请链接</button>
+            <div className="word-bank-seal">
+              <strong>{room.wordBankCount}</strong>
+              <span>个炉石题目已入库</span>
+            </div>
+          </section>
+
+          {room.isHost ? (
+            <div className="start-game-area room-lobby-start">
+              <button className="primary-button large start-button" disabled={!room.canStart} onClick={startGame} type="button">
+                {room.canStart ? "开始对局" : "等待玩家加入"}
+              </button>
+              {humanPlayers.length === 1 && (
+                <small>单人测试模式：开局后自动添加“旅店老板 AI”</small>
+              )}
+            </div>
+          ) : (
+            <div className="waiting-host room-lobby-start"><span className="waiting-dot" />等待房主开局</div>
+          )}
+        </aside>
 
         <section className="lobby-main">
           <div className="section-heading">
@@ -719,21 +734,9 @@ function RoomLobby({
             </div>
           </section>
 
-          <RoomChatPanel className="room-lobby-chat" onError={onError} room={room} />
-
-          {room.isHost ? (
-            <div className="start-game-area">
-              <button className="primary-button large start-button" disabled={!room.canStart} onClick={startGame} type="button">
-                {room.canStart ? "敲响开局铃" : "等待玩家加入"}
-              </button>
-              {humanPlayers.length === 1 && (
-                <small>单人测试模式：开局后自动添加“旅店老板 AI”</small>
-              )}
-            </div>
-          ) : (
-            <div className="waiting-host"><span className="waiting-dot" />等待房主开局</div>
-          )}
         </section>
+
+        <RoomChatPanel className="room-lobby-chat" onError={onError} room={room} />
       </div>
     </div>
   );

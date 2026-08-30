@@ -835,22 +835,33 @@ textarea:focus {
 .text-button:hover { color: #fff0bd; }
 
 .lobby-page {
-  width: min(1180px, calc(100% - 48px));
+  width: min(2320px, calc(100% - 48px));
   min-height: 100vh;
   margin: 0 auto;
   padding: 28px 0 52px;
 }
 
 .lobby-grid {
-  margin-top: 44px;
+  height: min(920px, calc(100vh - 120px));
+  min-height: 680px;
+  margin-top: 30px;
   display: grid;
-  grid-template-columns: 310px 1fr;
-  align-items: start;
-  gap: 54px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 14px;
+}
+
+.room-lobby-left {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .invite-panel {
-  padding: 32px;
+  width: 100%;
+  padding: 28px;
   border-radius: 7px 24px 9px 20px;
   text-align: center;
 }
@@ -892,7 +903,17 @@ textarea:focus {
 .word-bank-seal span { font-size: 0.78rem; }
 
 .lobby-main {
+  min-width: 0;
+  min-height: 0;
+  padding: 20px;
+  overflow-y: auto;
+  border: 1px solid rgba(232, 203, 143, 0.18);
+  border-radius: 12px;
   color: #f5ead0;
+  background: rgba(5, 23, 29, 0.48);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.16);
+  scrollbar-color: #517575 transparent;
+  scrollbar-width: thin;
 }
 
 .section-heading {
@@ -916,7 +937,7 @@ textarea:focus {
   margin-top: 20px;
   padding: 14px;
   display: grid;
-  grid-template-columns: minmax(150px, 0.75fr) minmax(240px, 1.5fr) auto;
+  grid-template-columns: 1fr;
   align-items: end;
   gap: 12px;
   border: 1px solid rgba(232, 203, 143, 0.16);
@@ -951,6 +972,7 @@ textarea:focus {
 }
 .room-details-form button:disabled { cursor: not-allowed; opacity: 0.45; }
 .room-details-form > small { align-self: center; color: #769895; font-size: 0.64rem; }
+.room-details-form button { width: 100%; }
 
 .lobby-player-grid {
   margin-top: 24px;
@@ -1026,17 +1048,17 @@ textarea:focus {
   margin-top: 24px;
   padding: 18px 20px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   border: 1px solid rgba(232, 203, 143, 0.16);
   border-radius: 11px;
   background: rgba(5, 23, 29, 0.26);
 }
 
-.room-lobby-chat {
-  height: 270px;
-  min-height: 270px;
-  margin-top: 22px;
+.chat-panel.room-lobby-chat {
+  height: 100%;
+  min-height: 0;
+  margin-top: 0;
 }
 
 .setting-item { display: grid; gap: 7px; }
@@ -1053,6 +1075,25 @@ textarea:focus {
 .start-game-area {
   display: grid;
   gap: 7px;
+}
+
+.room-lobby-start {
+  min-height: 96px;
+  margin-top: auto;
+  padding: 16px;
+  border: 1px solid rgba(232, 203, 143, 0.2);
+  border-radius: 11px;
+  background: rgba(5, 23, 29, 0.7);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.16);
+}
+
+.room-lobby-start .start-button {
+  width: 100%;
+  margin: 0;
+}
+
+.waiting-host.room-lobby-start {
+  justify-content: center;
 }
 
 .start-game-area > small {
@@ -2145,7 +2186,18 @@ textarea:focus {
       "chat chat";
   }
 
-  .lobby-grid { grid-template-columns: 250px 1fr; gap: 28px; }
+  .lobby-grid {
+    height: auto;
+    min-height: 0;
+    grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+    gap: 20px;
+  }
+  .lobby-main { overflow-y: visible; }
+  .chat-panel.room-lobby-chat {
+    grid-column: 1 / -1;
+    height: 330px;
+    min-height: 330px;
+  }
 
   .settings-panel { grid-template-columns: repeat(2, 1fr); }
   .game-grid { grid-template-columns: minmax(0, 1fr) 300px; }
@@ -2192,7 +2244,9 @@ textarea:focus {
 
   .lobby-page { padding-top: 20px; }
   .lobby-grid { margin-top: 28px; grid-template-columns: 1fr; }
-  .invite-panel { width: min(340px, 100%); margin: auto; }
+  .room-lobby-left .invite-panel { width: 100%; margin: 0; }
+  .chat-panel.room-lobby-chat { grid-column: auto; }
+  .lobby-main { padding: 16px; }
   .lobby-player-grid { grid-template-columns: 1fr; }
   .settings-panel { grid-template-columns: 1fr; }
   .room-details-form { grid-template-columns: 1fr; }
