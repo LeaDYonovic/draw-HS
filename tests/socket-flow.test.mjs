@@ -133,6 +133,11 @@ async function startRound(t, answerMode) {
       card.imageUrl.startsWith("/api/cards/images/") && card.imageUrl.endsWith(".png")
     ),
   );
+  assert.ok(
+    choosing.round.optionCards.every((card) =>
+      ["MINION", "SPELL", "WEAPON", "HERO", "LOCATION"].includes(card.type)
+    ),
+  );
   assert.equal(guestChoosing.round.options.length, 0);
   assert.equal(guestChoosing.round.optionCards.length, 0);
 

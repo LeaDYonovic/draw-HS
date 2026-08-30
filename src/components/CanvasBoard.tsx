@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { extractCardOutline } from "../outline-assist.mjs";
 import { socket } from "../realtime";
 import type { CanvasEvent, CanvasSegment } from "../types";
 
@@ -15,20 +16,36 @@ const COLORS = [
 
 interface CanvasBoardProps {
   canDraw: boolean;
+  onAssistError?: (message: string) => void;
+  referenceCardType?: string;
+  referenceImageUrl?: string;
   roundKey: string;
   overlay?: string;
 }
 
-export function CanvasBoard({ canDraw, roundKey, overlay }: CanvasBoardProps) {
+export function CanvasBoard({
+  canDraw,
+  onAssistError,
+  referenceCardType,
+  referenceImageUrl,
+  roundKey,
+  overlay,
+}: CanvasBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const historyRef = useRef<CanvasSegment[]>([]);
   const drawingRef = useRef(false);
   const previousPointRef = useRef<{ x: number; y: number } | null>(null);
   const pendingSegmentsRef = useRef<CanvasSegment[]>([]);
   const animationFrameRef = useRef<number | null>(null);
+  const assistRunRef = useRef(0);
+  const canDrawRef = useRef(canDraw);
+  const roundKeyRef = useRef(roundKey);
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(7);
   const [tool, setTool] = useState<"brush" | "eraser">("brush");
+  const [assistState, setAssistState] = useState<"idle" | "loading" | "done">("idle");
+  canDrawRef.current = canDraw;
+  roundKeyRef.current = roundKey;
 
   const paintSegment = (segment: CanvasSegment) => {
     const canvas = canvasRef.current;
@@ -106,6 +123,8 @@ export function CanvasBoard({ canDraw, roundKey, overlay }: CanvasBoardProps) {
   }, [roundKey]);
 
   useEffect(() => {
+    assistRunRef.current += 1;
+    setAssistState("idle");
     historyRef.current = [];
     redraw();
     pendingSegmentsRef.current = [];
@@ -115,15 +134,19 @@ export function CanvasBoard({ canDraw, roundKey, overlay }: CanvasBoardProps) {
     }
   }, [roundKey]);
 
-  const flushSegments = () => {
-    animationFrameRef.current = null;
-    const segments = pendingSegmentsRef.current.splice(0);
+  const emitSegments = (segments: CanvasSegment[]) => {
     for (let index = 0; index < segments.length; index += 64) {
       socket.emit("canvas_event", {
         type: "segments",
         segments: segments.slice(index, index + 64),
       });
     }
+  };
+
+  const flushSegments = () => {
+    animationFrameRef.current = null;
+    const segments = pendingSegmentsRef.current.splice(0);
+    emitSegments(segments);
   };
 
   const pointFromEvent = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -175,6 +198,8 @@ export function CanvasBoard({ canDraw, roundKey, overlay }: CanvasBoardProps) {
 
   const clearCanvas = () => {
     if (!canDraw) return;
+    assistRunRef.current += 1;
+    setAssistState("idle");
     pendingSegmentsRef.current = [];
     if (animationFrameRef.current !== null) {
       window.cancelAnimationFrame(animationFrameRef.current);
@@ -183,6 +208,60 @@ export function CanvasBoard({ canDraw, roundKey, overlay }: CanvasBoardProps) {
     historyRef.current = [];
     redraw();
     socket.emit("canvas_event", { type: "clear" });
+  };
+
+  const addOutlineAssist = async () => {
+    const canvas = canvasRef.current;
+    if (
+      !canDraw ||
+      !canvas ||
+      !referenceImageUrl ||
+      assistState !== "idle"
+    ) {
+      return;
+    }
+
+    const run = ++assistRunRef.current;
+    const activeRoundKey = roundKey;
+    setAssistState("loading");
+    try {
+      const result = await extractCardOutline(referenceImageUrl, {
+        cardType: referenceCardType,
+        canvasAspect: canvas.clientWidth / Math.max(1, canvas.clientHeight),
+      });
+      if (
+        run !== assistRunRef.current ||
+        !canDrawRef.current ||
+        roundKeyRef.current !== activeRoundKey
+      ) {
+        return;
+      }
+      if (result.segments.length < 20) {
+        throw new Error("这张卡牌没有提取到足够清晰的轮廓");
+      }
+
+      for (let index = 0; index < result.segments.length; index += 64) {
+        if (
+          run !== assistRunRef.current ||
+          !canDrawRef.current ||
+          roundKeyRef.current !== activeRoundKey
+        ) {
+          return;
+        }
+        const batch = result.segments.slice(index, index + 64);
+        historyRef.current.push(...batch);
+        batch.forEach(paintSegment);
+        emitSegments(batch);
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+      }
+      setAssistState("done");
+    } catch (error) {
+      if (run !== assistRunRef.current) return;
+      setAssistState("idle");
+      onAssistError?.(
+        error instanceof Error ? error.message : "暂时无法生成插画轮廓",
+      );
+    }
   };
 
   return (
@@ -222,6 +301,21 @@ export function CanvasBoard({ canDraw, roundKey, overlay }: CanvasBoardProps) {
           >
             {tool === "eraser" ? "继续画" : "橡皮"}
           </button>
+          {referenceImageUrl && (
+            <button
+              className={`tool-button assist ${assistState === "done" ? "active" : ""}`}
+              disabled={assistState !== "idle"}
+              onClick={addOutlineAssist}
+              title="分析卡牌类型对应的插画区域并生成简化轮廓"
+              type="button"
+            >
+              {assistState === "loading"
+                ? "分析插画中"
+                : assistState === "done"
+                  ? "轮廓已添加"
+                  : "轮廓辅助"}
+            </button>
+          )}
           <button className="tool-button danger" onClick={clearCanvas} type="button">
             清屏
           </button>

@@ -66,6 +66,7 @@ export interface LobbyState {
 export interface CardPreview {
   id: string;
   name: string;
+  type: string;
   imageUrl: string;
 }
 

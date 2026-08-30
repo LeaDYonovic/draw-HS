@@ -687,7 +687,12 @@ async function ensureCardImage(cardId, imagePath) {
 function cardPreview(name) {
   const card = cardByName.get(name);
   if (!card) return null;
-  return { id: card.id, name: card.name, imageUrl: card.imageUrl };
+  return {
+    id: card.id,
+    name: card.name,
+    type: card.type,
+    imageUrl: card.imageUrl,
+  };
 }
 
 function publicState(room, viewerId) {

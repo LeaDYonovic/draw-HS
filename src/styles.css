@@ -393,7 +393,7 @@ textarea:focus {
 
 .primary-button:hover:not(:disabled),
 .secondary-button:hover,
-.tool-button:hover {
+.tool-button:hover:not(:disabled) {
   filter: brightness(1.08);
   transform: translateY(-1px);
 }
@@ -1356,6 +1356,26 @@ textarea:focus {
 }
 
 .tool-button.active { color: #fff4d4; background: #246c78; }
+.tool-button.assist {
+  position: relative;
+  color: #173f45;
+  border-color: #77aaa7;
+  background: linear-gradient(#d9f2e9, #91c4bc);
+}
+.tool-button.assist::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  display: inline-block;
+  border: 1px solid currentColor;
+  border-radius: 50% 42% 52% 38%;
+  box-shadow: 4px -2px 0 -2px currentColor;
+  transform: rotate(-18deg);
+}
+.tool-button.assist.active { color: #e8fff7; background: #246c78; }
+.tool-button:disabled { cursor: wait; filter: saturate(0.65); opacity: 0.72; }
+.tool-button.assist.active:disabled { cursor: default; opacity: 0.88; }
 .tool-button.danger { margin-left: auto; color: #fff3d9; background: #8d3e2e; }
 
 .canvas-frame {

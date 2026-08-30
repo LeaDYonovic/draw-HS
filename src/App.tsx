@@ -16,6 +16,13 @@ import type {
 const SESSION_KEY = "hearth-draw-session";
 const NAME_KEY = "hearth-draw-name";
 const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家通过选择或搜索卡牌作答。";
+const CARD_TYPE_LABELS: Record<string, string> = {
+  MINION: "随从",
+  SPELL: "法术",
+  WEAPON: "武器",
+  HERO: "英雄",
+  LOCATION: "地标",
+};
 
 interface SavedSession {
   roomCode: string;
@@ -797,7 +804,9 @@ function GameRoom({
               <aside className="drawer-reference" aria-label="作画参考卡牌">
                 <div className="drawer-reference-heading">
                   <span>作画参考</span>
-                  <small>仅你可见</small>
+                  <small>
+                    {CARD_TYPE_LABELS[round.referenceCard.type] ?? "卡牌"} · 仅你可见
+                  </small>
                 </div>
                 <CardImage
                   card={round.referenceCard}
@@ -805,12 +814,15 @@ function GameRoom({
                   loading="eager"
                 />
                 <strong>{round.referenceCard.name}</strong>
-                <p>观察卡面元素作画，其他玩家看不到这张图。</p>
+                <p>可观察卡面手绘，也可选择轮廓辅助；参考图仅你可见。</p>
               </aside>
             )}
             <CanvasBoard
               canDraw={room.phase === "drawing" && room.isDrawer}
+              onAssistError={onError}
               overlay={overlay}
+              referenceCardType={round?.referenceCard?.type}
+              referenceImageUrl={round?.referenceCard?.imageUrl}
               roundKey={round?.key ?? "none"}
             />
           </div>
