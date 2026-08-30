@@ -1,0 +1,9 @@
+node_modules/
+dist/
+card-images/
+.vite/
+*.log
+.DS_Store
+树莓派归档/
+legendary_all_cards_zhCN.*.json
+legendary_collectible_cards_zhCN.lite.json
