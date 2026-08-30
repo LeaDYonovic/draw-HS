@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildOutlineSegments,
   getCardArtLayout,
+  getOutlineImageUrl,
 } from "../src/outline-assist.mjs";
 
 function syntheticArtwork(width = 96, height = 108) {
@@ -79,4 +80,15 @@ test("uses a calibrated artwork crop for every supported card type", () => {
     assert.ok(layout.x + layout.width <= 1);
     assert.ok(layout.y + layout.height <= 1);
   }
+});
+
+test("uses a dedicated CORS cache key for canvas image analysis", () => {
+  assert.equal(
+    getOutlineImageUrl("https://assets.example.com/card.webp?v=latest"),
+    "https://assets.example.com/card.webp?v=latest&outline=canvas-v1",
+  );
+  assert.equal(
+    getOutlineImageUrl("/api/cards/images/card.png#preview"),
+    "/api/cards/images/card.png?outline=canvas-v1#preview",
+  );
 });

@@ -29,6 +29,8 @@ export interface CardArtLayout {
 
 export function getCardArtLayout(cardType?: string): CardArtLayout;
 
+export function getOutlineImageUrl(imageUrl: string): string;
+
 export function buildOutlineSegments(
   pixelBuffer: OutlinePixelBuffer,
   options?: OutlineOptions,

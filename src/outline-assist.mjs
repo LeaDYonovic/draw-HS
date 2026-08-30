@@ -14,11 +14,26 @@ const DEFAULT_ART_LAYOUT = {
 };
 const GRID_WIDTH = 96;
 const MAX_SEGMENTS = 900;
+const OUTLINE_IMAGE_VERSION = "canvas-v1";
 
 export function getCardArtLayout(cardType) {
   return {
     ...(ART_LAYOUTS[String(cardType ?? "").toUpperCase()] ?? DEFAULT_ART_LAYOUT),
   };
+}
+
+export function getOutlineImageUrl(imageUrl) {
+  const value = String(imageUrl ?? "");
+  const hashIndex = value.indexOf("#");
+  const source = hashIndex >= 0 ? value.slice(0, hashIndex) : value;
+  const hash = hashIndex >= 0 ? value.slice(hashIndex) : "";
+  const queryIndex = source.indexOf("?");
+  const pathname = queryIndex >= 0 ? source.slice(0, queryIndex) : source;
+  const parameters = new URLSearchParams(
+    queryIndex >= 0 ? source.slice(queryIndex + 1) : "",
+  );
+  parameters.set("outline", OUTLINE_IMAGE_VERSION);
+  return `${pathname}?${parameters.toString()}${hash}`;
 }
 
 function clamp(value, minimum, maximum) {
@@ -268,12 +283,12 @@ export async function extractCardOutline(imageUrl, options = {}) {
   const image = new Image();
   image.crossOrigin = "anonymous";
   image.decoding = "async";
-  image.src = imageUrl;
   await new Promise((resolve, reject) => {
     image.addEventListener("load", resolve, { once: true });
     image.addEventListener("error", () => reject(new Error("无法读取卡牌插画")), {
       once: true,
     });
+    image.src = getOutlineImageUrl(imageUrl);
   });
 
   const layout = getCardArtLayout(options.cardType);
