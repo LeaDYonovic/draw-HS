@@ -60,6 +60,8 @@ npm run check
 | --- | ---: | --- |
 | `PORT` | `3000` | Web 与 Socket.IO 监听端口 |
 | `CARD_IMAGE_DIR` | `./card-images` | 卡牌图片缓存目录 |
+| `CARD_IMAGE_BASE_URL` | 未设置 | 卡图 CDN / R2 公网目录；设置后客户端直接从该地址加载卡图 |
+| `CARD_IMAGE_EXTENSION` | `png` | 卡图扩展名，支持 `png` 或 `webp` |
 | `MAX_ROOMS` | `100` | 同时存在的最大房间数 |
 | `MAX_IMAGE_FETCHES` | `4` | 卡图回源最大并发数 |
 | `MAX_IMAGE_FETCH_QUEUE` | `100` | 卡图回源等待队列上限 |
@@ -82,7 +84,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now hearth-draw
 ```
 
-当前房间、积分和聊天保存在进程内存中，服务重启后会清空。卡牌图片缓存在 `CARD_IMAGE_DIR`，systemd 配置默认使用 `/var/lib/hearth-draw/card-images`。随附配置只信任树莓派本机的 Cloudflare Tunnel 代理头；如果代理运行在其他主机，需要同步修改 `TRUSTED_PROXY_ADDRESSES`。
+当前房间、积分和聊天保存在进程内存中，服务重启后会清空。未配置 `CARD_IMAGE_BASE_URL` 时，卡牌图片缓存在 `CARD_IMAGE_DIR`，systemd 配置默认使用 `/var/lib/hearth-draw/card-images`；配置 R2 公网目录后，浏览器会直接加载 R2 卡图，树莓派上的本地接口继续作为回退。随附配置只信任树莓派本机的 Cloudflare Tunnel 代理头；如果代理运行在其他主机，需要同步修改 `TRUSTED_PROXY_ADDRESSES`。
 
 ## 说明
 

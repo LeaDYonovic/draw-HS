@@ -43,7 +43,15 @@ const cardImageVersion = crypto
   ))
   .digest("hex")
   .slice(0, 12);
+const cardImageBaseUrl = String(process.env.CARD_IMAGE_BASE_URL ?? "")
+  .trim()
+  .replace(/\/+$/u, "");
+const cardImageExtension = String(process.env.CARD_IMAGE_EXTENSION ?? "png")
+  .trim()
+  .toLowerCase();
 const cardCatalog = loadCardCatalog(cardCatalogPath, {
+  imageBaseUrl: cardImageBaseUrl,
+  imageExtension: cardImageExtension,
   imageVersion: cardImageVersion,
 });
 const WORD_BANK_DEFINITIONS = [
@@ -181,6 +189,10 @@ app.get("/api/health", (_request, response) => {
     cards: cardCatalog.length,
     wordBanks: wordBanks.size,
     cardDataLastModified: cardCatalogMetadata.lastModified ?? null,
+    cardImageSource: cardImageBaseUrl || "local",
+    cardImageExtension: ["png", "webp"].includes(cardImageExtension)
+      ? cardImageExtension
+      : "png",
   });
 });
 app.get("/api/word-bank", (_request, response) => {

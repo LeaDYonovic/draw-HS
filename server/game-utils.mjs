@@ -16,6 +16,15 @@ export function loadCardCatalog(filePath, options = {}) {
   const cards = JSON.parse(fs.readFileSync(filePath, "utf8"));
   if (!Array.isArray(cards)) return [];
   const imageVersion = String(options.imageVersion ?? "").trim();
+  const imageBaseUrl = String(options.imageBaseUrl ?? "")
+    .trim()
+    .replace(/\/+$/u, "");
+  const requestedImageExtension = String(options.imageExtension ?? "png")
+    .trim()
+    .toLowerCase();
+  const imageExtension = ["png", "webp"].includes(requestedImageExtension)
+    ? requestedImageExtension
+    : "png";
   const imageVersionSuffix = imageVersion
     ? `?v=${encodeURIComponent(imageVersion)}`
     : "";
@@ -36,7 +45,9 @@ export function loadCardCatalog(filePath, options = {}) {
         health: Number.isFinite(card.health) ? card.health : null,
         type: typeof card.type === "string" ? card.type : "",
         imageUrl: id
-          ? `/api/cards/images/${encodeURIComponent(id)}.png${imageVersionSuffix}`
+          ? `${
+            imageBaseUrl || "/api/cards/images"
+          }/${encodeURIComponent(id)}.${imageExtension}${imageVersionSuffix}`
           : "",
       };
     });
