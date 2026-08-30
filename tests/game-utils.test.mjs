@@ -136,6 +136,15 @@ test("searches card JSON by name and exact combat stats without duplicate names"
   assert.equal(crystalspineCub.health, 1);
   assert.equal(crystalspineCub.wordLength, 4);
   assert.equal(crystalspineCub.imageUrl, "/api/cards/images/CATA_130.png");
+
+  const versionedCards = loadCardCatalog(
+    path.join(root, "collectible_cards_zhCN.full.json"),
+    { imageVersion: "2026 latest" },
+  );
+  assert.equal(
+    versionedCards.find((card) => card.name === "炫晶小熊").imageUrl,
+    "/api/cards/images/CATA_130.png?v=2026%20latest",
+  );
   assert.equal(reprints.total, 1);
   assert.equal(reprints.results.length, 1);
   assert.ok(firstLongNamePage.total > 40);

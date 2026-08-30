@@ -130,7 +130,7 @@ async function startRound(t, answerMode, settings = {}) {
   );
   assert.ok(
     choosing.round.optionCards.every((card) =>
-      card.imageUrl.startsWith("/api/cards/images/") && card.imageUrl.endsWith(".png")
+      /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u.test(card.imageUrl)
     ),
   );
   assert.ok(
@@ -150,7 +150,7 @@ async function startRound(t, answerMode, settings = {}) {
   assert.equal(drawerDrawing.round.referenceCard.name, answer);
   assert.match(
     drawerDrawing.round.referenceCard.imageUrl,
-    /^\/api\/cards\/images\/.+\.png$/u,
+    /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u,
   );
   assert.equal(drawing.round.referenceCard, null);
 
@@ -172,7 +172,7 @@ test("an answerer can change a numbered choice before timeout", async (t) => {
   );
   assert.ok(
     drawing.round.answerOptionCards.every((card) =>
-      card.imageUrl.startsWith("/api/cards/images/") && card.imageUrl.endsWith(".png")
+      /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u.test(card.imageUrl)
     ),
   );
   assert.equal(
@@ -252,7 +252,10 @@ test("an answerer can change a numbered choice before timeout", async (t) => {
   const ended = await guestState.waitFor((state) => state.phase === "roundEnd");
   assert.equal(ended.round.word, answer);
   assert.equal(ended.round.answerCard.name, answer);
-  assert.match(ended.round.answerCard.imageUrl, /^\/api\/cards\/images\/.+\.png$/u);
+  assert.match(
+    ended.round.answerCard.imageUrl,
+    /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u,
+  );
   const answerer = ended.players.find((player) => player.name === "猜客乙");
   assert.equal(answerer.answeredCorrectly, true);
   assert.ok(answerer.score >= 100);

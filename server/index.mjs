@@ -30,10 +30,22 @@ const cardCatalogMetadataPath = path.join(
   rootDir,
   "collectible_cards_zhCN.metadata.json",
 );
-const cardCatalog = loadCardCatalog(cardCatalogPath);
 const cardCatalogMetadata = fs.existsSync(cardCatalogMetadataPath)
   ? JSON.parse(fs.readFileSync(cardCatalogMetadataPath, "utf8"))
   : {};
+const cardImageVersion = crypto
+  .createHash("sha256")
+  .update(String(
+    cardCatalogMetadata.etag ??
+    cardCatalogMetadata.lastModified ??
+    cardCatalogMetadata.downloadedAt ??
+    "unversioned",
+  ))
+  .digest("hex")
+  .slice(0, 12);
+const cardCatalog = loadCardCatalog(cardCatalogPath, {
+  imageVersion: cardImageVersion,
+});
 const WORD_BANK_DEFINITIONS = [
   { id: "all", label: "全部卡牌", group: "总览", matches: () => true },
   { id: "legendary", label: "传说卡牌", group: "按稀有度", matches: (card) => card.rarity === "LEGENDARY" },

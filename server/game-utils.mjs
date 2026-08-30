@@ -12,9 +12,13 @@ export function loadWordBank(filePath) {
   return [...new Set(words)];
 }
 
-export function loadCardCatalog(filePath) {
+export function loadCardCatalog(filePath, options = {}) {
   const cards = JSON.parse(fs.readFileSync(filePath, "utf8"));
   if (!Array.isArray(cards)) return [];
+  const imageVersion = String(options.imageVersion ?? "").trim();
+  const imageVersionSuffix = imageVersion
+    ? `?v=${encodeURIComponent(imageVersion)}`
+    : "";
 
   const normalizedCards = cards
     .filter((card) => card && typeof card.name === "string" && card.name.trim())
@@ -31,7 +35,9 @@ export function loadCardCatalog(filePath) {
         attack: Number.isFinite(card.attack) ? card.attack : null,
         health: Number.isFinite(card.health) ? card.health : null,
         type: typeof card.type === "string" ? card.type : "",
-        imageUrl: id ? `/api/cards/images/${encodeURIComponent(id)}.png` : "",
+        imageUrl: id
+          ? `/api/cards/images/${encodeURIComponent(id)}.png${imageVersionSuffix}`
+          : "",
       };
     });
 
