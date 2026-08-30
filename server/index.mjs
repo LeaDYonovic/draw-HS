@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
 import {
+  buildBotOutlineFromPng,
+  buildBotTypeSketch,
+} from "./bot-drawing.mjs";
+import {
   SCORE_BANDS,
   buildCardAnswerOptions,
   calculateScore,
@@ -194,6 +198,7 @@ const cardImageDir = path.resolve(
   process.env.CARD_IMAGE_DIR || path.join(rootDir, "card-images"),
 );
 const pendingCardImages = new Map();
+const botOutlineCache = new Map();
 const rateWindows = new Map();
 const imageFetchQueue = [];
 let activeImageFetches = 0;
@@ -721,6 +726,7 @@ function createRoom(host, details = {}) {
     players: new Map([[host.id, host]]),
     phase: "lobby",
     hintTimers: [],
+    botDrawTimers: [],
     settings: {
       roundsPerPlayer: 2,
       roundTime: 60,
@@ -827,6 +833,8 @@ function clearRoomTimer(room) {
   }
   for (const timer of room.hintTimers ?? []) clearTimeout(timer);
   room.hintTimers = [];
+  for (const timer of room.botDrawTimers ?? []) clearTimeout(timer);
+  room.botDrawTimers = [];
 }
 
 function roundDurationMs(room) {
@@ -1284,6 +1292,107 @@ function scheduleBotAnswers(room) {
   }
 }
 
+function activeBotDrawingRound(room, roundStartedAt) {
+  const current = room.current;
+  return room.phase === "drawing" &&
+    current?.startedAt === roundStartedAt &&
+    room.players.get(current.drawerId)?.isBot;
+}
+
+function appendBotSegments(room, roundStartedAt, inputSegments) {
+  if (!activeBotDrawingRound(room, roundStartedAt)) return;
+  const segments = inputSegments.map(validSegment).filter(Boolean);
+  if (segments.length === 0) return;
+  room.current.history.push(...segments);
+  if (room.current.history.length > 15_000) {
+    room.current.history.splice(0, 2_000);
+  }
+  io.to(room.code).emit(
+    "canvas_event",
+    segments.length === 1
+      ? { type: "segment", segment: segments[0] }
+      : { type: "segments", segments },
+  );
+}
+
+function queueBotSegments(room, roundStartedAt, segments, options = {}) {
+  if (segments.length === 0) return;
+  const batchSize = Math.max(1, Math.min(64, options.batchSize ?? 18));
+  const intervalMs = Math.max(25, options.intervalMs ?? 120);
+  const startDelayMs = Math.max(0, options.startDelayMs ?? 80);
+  for (let index = 0; index < segments.length; index += batchSize) {
+    const timer = setTimeout(
+      () => appendBotSegments(
+        room,
+        roundStartedAt,
+        segments.slice(index, index + batchSize),
+      ),
+      startDelayMs + Math.floor(index / batchSize) * intervalMs,
+    );
+    room.botDrawTimers.push(timer);
+  }
+}
+
+async function loadBotOutline(card) {
+  if (!card?.id) return [];
+  if (botOutlineCache.has(card.id)) return botOutlineCache.get(card.id);
+
+  const pending = withImageFetchSlot(async () => {
+    const response = await fetch(
+      `${CARD_IMAGE_SOURCE}/${encodeURIComponent(card.id)}.png`,
+      { signal: AbortSignal.timeout(12_000) },
+    );
+    if (!response.ok) throw new Error(`AI 卡图返回 ${response.status}`);
+    if (!String(response.headers.get("content-type") ?? "").startsWith("image/png")) {
+      throw new Error("AI 卡图不是 PNG");
+    }
+    const image = Buffer.from(await response.arrayBuffer());
+    if (image.length < 1_000 || image.length > 4_000_000) {
+      throw new Error("AI 卡图文件大小异常");
+    }
+    return buildBotOutlineFromPng(image, card, { maxSegments: 420 });
+  });
+
+  botOutlineCache.set(card.id, pending);
+  if (botOutlineCache.size > 64) {
+    botOutlineCache.delete(botOutlineCache.keys().next().value);
+  }
+  try {
+    return await pending;
+  } catch (error) {
+    botOutlineCache.delete(card.id);
+    throw error;
+  }
+}
+
+function scheduleBotDrawing(room) {
+  const current = room.current;
+  const drawer = room.players.get(current?.drawerId);
+  const card = cardByName.get(current?.word);
+  if (!current || !drawer?.isBot || !card) return;
+
+  const roundStartedAt = current.startedAt;
+  const durationMs = roundDurationMs(room);
+  queueBotSegments(room, roundStartedAt, buildBotTypeSketch(card), {
+    batchSize: 10,
+    startDelayMs: Math.min(80, durationMs * 0.08),
+    intervalMs: Math.max(25, Math.min(320, durationMs * 0.015)),
+  });
+
+  void loadBotOutline(card)
+    .then((segments) => {
+      if (!activeBotDrawingRound(room, roundStartedAt)) return;
+      queueBotSegments(room, roundStartedAt, segments, {
+        batchSize: 24,
+        startDelayMs: Math.max(50, Math.min(900, durationMs * 0.08)),
+        intervalMs: Math.max(35, Math.min(360, durationMs * 0.012)),
+      });
+    })
+    .catch((error) => {
+      console.warn(`AI 轮廓生成失败 ${card.id}: ${error.message}`);
+    });
+}
+
 function revealHintStage(room, roundStartedAt, stage) {
   const current = room.current;
   if (
@@ -1335,10 +1444,11 @@ function startDrawing(room, word) {
     `${room.players.get(room.current.drawerId)?.name} 开始作画！本轮为${room.current.questionType === "choice" ? "选择题" : "搜索题"}。`,
   );
   if (room.players.get(room.current.drawerId)?.isBot) {
-    addSystemMessage(room, "AI 测试回合不会生成画作，可直接体验答题流程。");
+    addSystemMessage(room, "AI 正在参考卡牌插画作画，请根据画面和线索答题。");
   }
   emitState(room);
   scheduleBotAnswers(room);
+  scheduleBotDrawing(room);
   room.hintTimers = [
     setTimeout(
       () => revealHintStage(room, now, 1),

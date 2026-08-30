@@ -472,6 +472,8 @@ test("a solo host can start with an AI player that chooses and answers automatic
 
   const host = createClient(url, { transports: ["websocket"], forceNew: true });
   const hostState = trackState(host);
+  const hostCanvasEvent = trackState(host, "canvas_event");
+  const hostCanvas = trackState(host, "canvas_history");
   t.after(() => host.disconnect());
 
   const created = await emitAck(host, "create_room", { name: "单人测试房主" });
@@ -514,9 +516,20 @@ test("a solo host can start with an AI player that chooses and answers automatic
   assert.equal(aiDrawing.round.answerOptionCards.length, 10);
   assert.ok(
     aiDrawing.messages.some((message) =>
-      message.text.includes("AI 测试回合不会生成画作"),
+      message.text.includes("AI 正在参考卡牌插画作画"),
     ),
   );
+  const aiStroke = await hostCanvasEvent.waitFor(
+    (event) => event?.type === "segments" && event.segments.length > 0,
+    1_000,
+  );
+  assert.ok(aiStroke.segments.length > 0);
+  host.emit("request_canvas_history");
+  const aiCanvas = await hostCanvas.waitFor(
+    (history) => Array.isArray(history) && history.length > 0,
+    1_000,
+  );
+  assert.ok(aiCanvas.length >= 10);
   const gameOver = await hostState.waitFor((state) => state.phase === "gameOver", 3_000);
   assert.equal(gameOver.players.find((player) => player.isBot).score, 0);
 });
