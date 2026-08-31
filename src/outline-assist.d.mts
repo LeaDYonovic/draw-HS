@@ -9,12 +9,14 @@ export interface OutlinePixelBuffer {
 export interface OutlineOptions {
   canvasAspect?: number;
   cardType?: string;
-  coloringRowStep?: number;
+  colorBrushSize?: number;
+  colorCellSize?: number;
   colorMode?: "sampled";
   detail?: "simple" | "standard" | "detailed";
   includeFrame?: boolean;
   mask?: "ellipse" | "rounded";
   maxColoringSegments?: number;
+  maxFinishingSegments?: number;
   maxOutlineSegments?: number;
   maxSegments?: number;
 }
@@ -29,6 +31,7 @@ export interface OutlineSegmentsResult {
 export interface OutlineResult extends OutlineSegmentsResult {
   outline: CanvasSegment[];
   coloring: CanvasSegment[];
+  finishing: CanvasSegment[];
   shading: CanvasSegment[];
 }
 

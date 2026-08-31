@@ -1,63 +1,53 @@
 const ART_LAYOUTS = {
-  MINION: { x: 0.17, y: 0.08, width: 0.66, height: 0.43, mask: "ellipse" },
-  HERO: { x: 0.20, y: 0.09, width: 0.60, height: 0.43, mask: "ellipse" },
-  SPELL: { x: 0.17, y: 0.10, width: 0.66, height: 0.41, mask: "ellipse" },
-  WEAPON: { x: 0.18, y: 0.09, width: 0.64, height: 0.42, mask: "ellipse" },
-  LOCATION: { x: 0.14, y: 0.10, width: 0.72, height: 0.45, mask: "ellipse" },
+  MINION: { x: 0.19, y: 0.10, width: 0.62, height: 0.37, mask: "ellipse" },
+  HERO: { x: 0.21, y: 0.11, width: 0.58, height: 0.37, mask: "ellipse" },
+  SPELL: { x: 0.19, y: 0.12, width: 0.62, height: 0.35, mask: "ellipse" },
+  WEAPON: { x: 0.20, y: 0.10, width: 0.60, height: 0.38, mask: "ellipse" },
+  LOCATION: { x: 0.17, y: 0.11, width: 0.66, height: 0.38, mask: "ellipse" },
 };
 const DEFAULT_ART_LAYOUT = {
-  x: 0.17,
-  y: 0.10,
-  width: 0.66,
-  height: 0.42,
-  mask: "rounded",
+  x: 0.19,
+  y: 0.11,
+  width: 0.62,
+  height: 0.37,
+  mask: "ellipse",
 };
 const DETAIL_PRESETS = {
   simple: {
-    gridWidth: 84,
+    gridWidth: 112,
     highQuantile: 0.84,
     minimumHighThreshold: 58,
     lowThresholdRatio: 0.48,
     minComponentSize: 7,
-    maxSegments: 360,
+    maxSegments: 480,
     minPathPoints: 5,
-    simplifyTolerance: 1.6,
-    brushSize: 2.8,
+    simplifyTolerance: 1.35,
+    brushSize: 2.5,
   },
   standard: {
-    gridWidth: 112,
+    gridWidth: 176,
     highQuantile: 0.76,
     minimumHighThreshold: 46,
     lowThresholdRatio: 0.42,
     minComponentSize: 4,
-    maxSegments: 600,
+    maxSegments: 900,
     minPathPoints: 3,
-    simplifyTolerance: 0.78,
-    brushSize: 2.35,
+    simplifyTolerance: 0.62,
+    brushSize: 1.9,
   },
   detailed: {
-    gridWidth: 144,
+    gridWidth: 240,
     highQuantile: 0.68,
     minimumHighThreshold: 36,
     lowThresholdRatio: 0.36,
     minComponentSize: 2,
-    maxSegments: 1_000,
+    maxSegments: 1_600,
     minPathPoints: 2,
-    simplifyTolerance: 0.45,
-    brushSize: 2,
+    simplifyTolerance: 0.32,
+    brushSize: 1.45,
   },
 };
-const OUTLINE_IMAGE_VERSION = "canvas-v4";
-const DRAWING_PALETTE = [
-  [38, 56, 61, "#26383d"],
-  [181, 47, 50, "#b52f32"],
-  [217, 120, 45, "#d9782d"],
-  [229, 184, 60, "#e5b83c"],
-  [79, 143, 70, "#4f8f46"],
-  [43, 115, 153, "#2b7399"],
-  [104, 72, 140, "#68488c"],
-  [140, 90, 60, "#8c5a3c"],
-];
+const OUTLINE_IMAGE_VERSION = "canvas-v5";
 
 export function getCardArtLayout(cardType) {
   return {
@@ -105,8 +95,8 @@ function insideArtMask(x, y, width, height, mask = "ellipse") {
     const nearestY = clamp(pointY, top + radius, bottom - radius);
     return Math.hypot(pointX - nearestX, pointY - nearestY) <= radius;
   }
-  const normalizedX = (x + 0.5 - width / 2) / (width * 0.48);
-  const normalizedY = (y + 0.5 - height / 2) / (height * 0.48);
+  const normalizedX = (x + 0.5 - width / 2) / (width * 0.445);
+  const normalizedY = (y + 0.5 - height / 2) / (height * 0.445);
   return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
 }
 
@@ -551,24 +541,47 @@ function mapDrawingPoint(index, width, height, bounds) {
   };
 }
 
+function smoothDrawingPath(points, width, height, bounds, passes = 2) {
+  let mapped = points.map((point) => mapDrawingPoint(point, width, height, bounds));
+  for (let pass = 0; pass < passes && mapped.length > 2; pass += 1) {
+    const next = [mapped[0]];
+    for (let index = 1; index < mapped.length - 1; index += 1) {
+      next.push({
+        x: mapped[index - 1].x * 0.2 + mapped[index].x * 0.6 + mapped[index + 1].x * 0.2,
+        y: mapped[index - 1].y * 0.2 + mapped[index].y * 0.6 + mapped[index + 1].y * 0.2,
+      });
+    }
+    next.push(mapped.at(-1));
+    mapped = next;
+  }
+  return mapped;
+}
+
+function rgbHex(red, green, blue, step = 12) {
+  const channel = (value) => clamp(Math.round(value / step) * step, 0, 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `#${channel(red)}${channel(green)}${channel(blue)}`;
+}
+
 function quantizeDrawingColor(red, green, blue, colorMode) {
   if (colorMode !== "sampled") return "#26383d";
   const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
   const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
-  if (saturation < 28 || (luminance < 38 && saturation < 72)) return "#26383d";
-  let nearest = DRAWING_PALETTE[0];
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  for (const color of DRAWING_PALETTE.slice(1)) {
-    const distance =
-      (red - color[0]) ** 2 +
-      (green - color[1]) ** 2 +
-      (blue - color[2]) ** 2;
-    if (distance < nearestDistance) {
-      nearest = color;
-      nearestDistance = distance;
-    }
+  if (luminance > 205 && saturation < 28) {
+    const scale = 180 / luminance;
+    return rgbHex(red * scale, green * scale, blue * scale, 10);
   }
-  return nearest[3];
+  if (luminance < 28) {
+    const scale = 42 / Math.max(1, luminance);
+    return rgbHex(red * scale, green * scale, blue * scale, 10);
+  }
+  return rgbHex(red, green, blue, 10);
+}
+
+function quantizePaintColor(red, green, blue, detail) {
+  const step = detail === "detailed" ? 6 : detail === "simple" ? 18 : 10;
+  return rgbHex(red, green, blue, step);
 }
 
 function drawingColor(data, points, colorMode) {
@@ -752,9 +765,20 @@ export function buildOutlineSegments(pixelBuffer, options = {}) {
       Math.min(maximumPerPath, remaining),
     );
     const color = drawingColor(data, points, options.colorMode);
-    for (let index = 1; index < points.length && segments.length < maximum; index += 1) {
-      const start = mapDrawingPoint(points[index - 1], width, height, bounds);
-      const end = mapDrawingPoint(points[index], width, height, bounds);
+    const mappedPoints = smoothDrawingPath(
+      points,
+      width,
+      height,
+      bounds,
+      options.detail === "simple" ? 1 : 2,
+    );
+    for (
+      let index = 1;
+      index < mappedPoints.length && segments.length < maximum;
+      index += 1
+    ) {
+      const start = mappedPoints[index - 1];
+      const end = mappedPoints[index];
       segments.push({
         x0: start.x,
         y0: start.y,
@@ -775,129 +799,121 @@ export function buildOutlineSegments(pixelBuffer, options = {}) {
   };
 }
 
-export function buildSandShadingSegments(pixelBuffer, options = {}) {
+function averageCellColor(data, width, height, centerX, centerY, radius, mask) {
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+  let samples = 0;
+  for (let y = Math.max(0, centerY - radius); y <= Math.min(height - 1, centerY + radius); y += 1) {
+    for (let x = Math.max(0, centerX - radius); x <= Math.min(width - 1, centerX + radius); x += 1) {
+      if (!insideArtMask(x, y, width, height, mask)) continue;
+      const pixel = (y * width + x) * 4;
+      if (data[pixel + 3] <= 32) continue;
+      red += data[pixel];
+      green += data[pixel + 1];
+      blue += data[pixel + 2];
+      samples += 1;
+    }
+  }
+  if (samples === 0) return null;
+  return { red: red / samples, green: green / samples, blue: blue / samples };
+}
+
+function mapDrawingCoordinate(x, y, width, height, bounds) {
+  return {
+    x: clamp(bounds.left + x / width * bounds.width, 0, 1),
+    y: clamp(bounds.top + y / height * bounds.height, 0, 1),
+  };
+}
+
+export function buildColorPaintingSegments(pixelBuffer, options = {}) {
   const { data, width, height } = pixelBuffer;
   if (!data || width < 8 || height < 8 || data.length < width * height * 4) {
     throw new Error("插画像素数据无效");
   }
-  const luminance = new Float32Array(width * height);
-  const saturation = new Float32Array(width * height);
-  const visible = [];
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const index = y * width + x;
-      const pixel = index * 4;
-      luminance[index] =
-        data[pixel] * 0.2126 +
-        data[pixel + 1] * 0.7152 +
-        data[pixel + 2] * 0.0722;
-      saturation[index] =
-        Math.max(data[pixel], data[pixel + 1], data[pixel + 2]) -
-        Math.min(data[pixel], data[pixel + 1], data[pixel + 2]);
-      if (data[pixel + 3] > 32 && insideArtMask(x, y, width, height, options.mask)) {
-        visible.push(luminance[index]);
-      }
-    }
-  }
-  const darkPoint = percentile(visible, 0.08);
-  const lightPoint = percentile(visible, 0.92);
-  const range = Math.max(24, lightPoint - darkPoint);
-  const rowStep = Math.max(4, Number(options.rowStep) || 5);
-  const runs = [];
-  for (let y = Math.floor(rowStep / 2); y < height; y += rowStep) {
-    let start = -1;
-    let darkness = 0;
-    let runColor = null;
-    const closeRun = (end) => {
-      if (start < 0 || end - start < 4) {
-        start = -1;
-        darkness = 0;
-        runColor = null;
-        return;
-      }
-      const averageDarkness = darkness / (end - start);
-      const centerX = (start + end) / 2 / width;
-      const centerY = y / height;
-      const centrality = 1.15 - Math.min(0.35, Math.hypot(centerX - 0.5, centerY - 0.5) * 0.5);
-      runs.push({
-        color: runColor,
-        darkness: averageDarkness,
-        end,
-        score: (end - start) * averageDarkness * centrality,
-        start,
-        y,
-      });
-      start = -1;
-      darkness = 0;
-      runColor = null;
-    };
-    for (let x = 0; x <= width; x += 1) {
-      const index = y * width + Math.min(x, width - 1);
-      const normalized = x < width
-        ? clamp((luminance[index] - darkPoint) / range, 0, 1)
-        : 1;
-      const paintable =
-        x < width &&
-        (normalized < 0.6 || saturation[index] > 46) &&
-        insideArtMask(x, y, width, height, options.mask);
-      if (paintable) {
-        const pixel = index * 4;
-        const color = quantizeDrawingColor(
-          data[pixel],
-          data[pixel + 1],
-          data[pixel + 2],
-          options.colorMode,
-        );
-        const colorChanged = runColor !== null && color !== runColor;
-        const runTooLong = start >= 0 && x - start >= width * 0.24;
-        if ((colorChanged || runTooLong) && x - start >= 4) closeRun(x);
-        if (start < 0) {
-          start = x;
-          runColor = color;
-        }
-        darkness += 1 - normalized;
-      } else {
-        closeRun(x);
-      }
-    }
-  }
-  runs.sort((first, second) => second.score - first.score);
-
-  const maximum = Math.max(1, Number(options.maxSegments) || 90);
+  const detail = options.detail ?? "standard";
+  const cellSize = Math.max(
+    2,
+    Number(options.colorCellSize) || (detail === "detailed" ? 3 : detail === "simple" ? 5 : 4),
+  );
+  const defaultMaximum = detail === "detailed" ? 2_600 : detail === "simple" ? 360 : 1_100;
+  const maximum = Math.max(1, Number(options.maxSegments) || defaultMaximum);
   const bounds = drawingBounds(
     width,
     height,
     Math.max(0.5, Number(options.canvasAspect) || 4 / 3),
   );
-  const segments = [];
-  for (const run of runs) {
-    if (segments.length >= maximum) break;
-    const step = Math.max(3, Math.ceil((run.end - run.start) / 12));
-    const points = [];
-    for (let x = run.start; x <= run.end; x += step) {
-      const wave = Math.sin((x + run.y * 1.7) * 0.55) * (0.45 + run.darkness);
-      const pointY = clamp(Math.round(run.y + wave), 0, height - 1);
-      points.push(pointY * width + Math.min(run.end - 1, x));
-    }
-    if (points.at(-1) % width !== run.end - 1) {
-      points.push(run.y * width + run.end - 1);
-    }
-    const color = run.color ?? drawingColor(data, points, options.colorMode);
-    for (let index = 1; index < points.length && segments.length < maximum; index += 1) {
-      const start = mapDrawingPoint(points[index - 1], width, height, bounds);
-      const end = mapDrawingPoint(points[index], width, height, bounds);
-      segments.push({
-        x0: start.x,
-        y0: start.y,
-        x1: end.x,
-        y1: end.y,
-        color,
-        size: 2.8,
-        tool: "brush",
+  const candidates = [];
+  const halfCell = Math.max(1, Math.floor(cellSize / 2));
+  for (let y = halfCell; y < height; y += cellSize) {
+    for (let x = halfCell; x < width; x += cellSize) {
+      if (!insideArtMask(x, y, width, height, options.mask)) continue;
+      const average = averageCellColor(
+        data,
+        width,
+        height,
+        x,
+        y,
+        halfCell,
+        options.mask,
+      );
+      if (!average) continue;
+      const red = average.red;
+      const green = average.green;
+      const blue = average.blue;
+      const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
+      const centerDistance = Math.hypot(x / width - 0.5, y / height - 0.5);
+      const leftPixel = (y * width + Math.max(0, x - cellSize)) * 4;
+      const rightPixel = (y * width + Math.min(width - 1, x + cellSize)) * 4;
+      const localContrast = Math.hypot(
+        data[leftPixel] - data[rightPixel],
+        data[leftPixel + 1] - data[rightPixel + 1],
+        data[leftPixel + 2] - data[rightPixel + 2],
+      );
+      candidates.push({
+        color: quantizePaintColor(red, green, blue, detail),
+        score: (1 - Math.min(0.8, centerDistance)) * 120 + saturation * 0.3 + localContrast * 0.35,
+        x,
+        y,
       });
     }
   }
+  candidates.sort((first, second) => second.score - first.score);
+
+  const brushSize = Number(options.colorBrushSize) ||
+    (detail === "detailed" ? 8 : detail === "simple" ? 18 : 12);
+  const segments = [];
+  for (const candidate of candidates.slice(0, maximum)) {
+    const diagonal = ((candidate.x / cellSize + candidate.y / cellSize) % 2 ? 1 : -1) * cellSize * 0.12;
+    const start = mapDrawingCoordinate(
+      candidate.x - cellSize * 0.48,
+      candidate.y - diagonal,
+      width,
+      height,
+      bounds,
+    );
+    const end = mapDrawingCoordinate(
+      candidate.x + cellSize * 0.48,
+      candidate.y + diagonal,
+      width,
+      height,
+      bounds,
+    );
+    segments.push({
+      x0: start.x,
+      y0: start.y,
+      x1: end.x,
+      y1: end.y,
+      color: candidate.color,
+      size: brushSize,
+      tool: "brush",
+    });
+  }
   return segments;
+}
+
+export function buildSandShadingSegments(pixelBuffer, options = {}) {
+  return buildColorPaintingSegments(pixelBuffer, options);
 }
 
 export function buildAssistedDrawing(pixelBuffer, options = {}) {
@@ -905,17 +921,26 @@ export function buildAssistedDrawing(pixelBuffer, options = {}) {
     ...options,
     maxSegments: options.maxOutlineSegments ?? options.maxSegments,
   });
-  const coloring = buildSandShadingSegments(pixelBuffer, {
+  const coloring = buildColorPaintingSegments(pixelBuffer, {
     ...options,
-    maxSegments: options.maxColoringSegments ?? options.maxShadingSegments ?? 170,
-    rowStep: options.coloringRowStep ?? options.shadingRowStep ?? 5,
+    maxSegments: options.maxColoringSegments ?? options.maxShadingSegments,
   });
+  const finishingLimit = Math.max(
+    0,
+    Number(options.maxFinishingSegments) ||
+      (options.detail === "detailed" ? 520 : options.detail === "simple" ? 160 : 300),
+  );
+  const finishing = outlineResult.segments.slice(0, finishingLimit).map((segment) => ({
+    ...segment,
+    size: Math.max(2.2, segment.size * 1.35),
+  }));
   return {
     ...outlineResult,
     outline: outlineResult.segments,
     coloring,
     shading: coloring,
-    segments: [...outlineResult.segments, ...coloring],
+    finishing,
+    segments: [...outlineResult.segments, ...coloring, ...finishing],
   };
 }
 

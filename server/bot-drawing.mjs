@@ -199,15 +199,20 @@ export function buildBotDrawingFromPng(pngBuffer, card, options = {}) {
     throw new Error("AI 卡图尺寸异常");
   }
   const layout = getCardArtLayout(card?.type);
-  const artwork = cropArtwork(image, layout, options.gridWidth ?? 112);
+  const detail = options.detail ?? "detailed";
+  const gridWidth = options.gridWidth ??
+    (detail === "detailed" ? 240 : detail === "simple" ? 112 : 176);
+  const artwork = cropArtwork(image, layout, gridWidth);
   return buildAssistedDrawing(artwork, {
     canvasAspect: options.canvasAspect ?? 4 / 3,
     colorMode: "sampled",
-    detail: options.detail ?? "standard",
+    detail,
     mask: layout.mask,
+    colorBrushSize: options.colorBrushSize,
+    colorCellSize: options.colorCellSize,
     maxColoringSegments: options.maxColoringSegments ?? options.maxShadingSegments,
+    maxFinishingSegments: options.maxFinishingSegments,
     maxOutlineSegments: options.maxOutlineSegments ?? options.maxSegments,
-    coloringRowStep: options.coloringRowStep ?? options.shadingRowStep,
   });
 }
 

@@ -49,9 +49,9 @@ export function CanvasBoard({
   const [tool, setTool] = useState<"brush" | "eraser">("brush");
   const [assistDetail, setAssistDetail] = useState<
     "simple" | "standard" | "detailed"
-  >("standard");
+  >("detailed");
   const [assistState, setAssistState] = useState<
-    "idle" | "loading" | "outlining" | "coloring" | "done"
+    "idle" | "loading" | "outlining" | "coloring" | "finishing" | "done"
   >("idle");
   canDrawRef.current = canDraw;
   roundKeyRef.current = roundKey;
@@ -271,6 +271,8 @@ export function CanvasBoard({
       if (!await drawPhase(result.outline)) return;
       setAssistState("coloring");
       if (!await drawPhase(result.coloring)) return;
+      setAssistState("finishing");
+      if (!await drawPhase(result.finishing)) return;
       setAssistState("done");
     } catch (error) {
       if (run !== assistRunRef.current) return;
@@ -346,6 +348,8 @@ export function CanvasBoard({
                     ? "勾轮廓"
                     : assistState === "coloring"
                       ? "铺色中"
+                      : assistState === "finishing"
+                        ? "补细节"
                       : assistState === "done"
                         ? "已完成"
                         : "辅助作画"}

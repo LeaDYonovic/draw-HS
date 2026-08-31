@@ -35,7 +35,7 @@ test("builds a non-empty immediate sketch for every card type", () => {
   }
 });
 
-test("extracts continuous outlines and sand shading from a rendered PNG card", () => {
+test("extracts smooth outlines and rich color painting from a rendered PNG card", () => {
   const image = new PNG({ width: 256, height: 384 });
   for (let y = 0; y < image.height; y += 1) {
     for (let x = 0; x < image.width; x += 1) {
@@ -53,13 +53,17 @@ test("extracts continuous outlines and sand shading from a rendered PNG card", (
   const drawing = buildBotDrawingFromPng(
     PNG.sync.write(image),
     { type: "MINION" },
-    { maxOutlineSegments: 180, maxShadingSegments: 70 },
+    { maxOutlineSegments: 180, maxShadingSegments: 70, maxFinishingSegments: 40 },
   );
   assertSegments(drawing.outline, 40);
   assertSegments(drawing.shading, 30);
   assert.ok(drawing.outline.length <= 180);
   assert.ok(drawing.shading.length <= 70);
-  assert.deepEqual(drawing.segments, [...drawing.outline, ...drawing.shading]);
+  assertSegments(drawing.finishing, 40);
+  assert.deepEqual(
+    drawing.segments,
+    [...drawing.outline, ...drawing.shading, ...drawing.finishing],
+  );
   const joinedSegments = drawing.outline.slice(1).filter((segment, index) => {
     const previous = drawing.outline[index];
     return Math.hypot(previous.x1 - segment.x0, previous.y1 - segment.y0) < 1e-9;

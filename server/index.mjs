@@ -1359,14 +1359,11 @@ async function loadBotDrawing(card) {
     if (image.length < 1_000 || image.length > 4_000_000) {
       throw new Error("AI 卡图文件大小异常");
     }
-    return buildBotDrawingFromPng(image, card, {
-      maxOutlineSegments: 600,
-      maxColoringSegments: 170,
-    });
+    return buildBotDrawingFromPng(image, card);
   });
 
   botDrawingCache.set(card.id, pending);
-  if (botDrawingCache.size > 64) {
+  if (botDrawingCache.size > 32) {
     botDrawingCache.delete(botDrawingCache.keys().next().value);
   }
   try {
@@ -1405,11 +1402,11 @@ function scheduleBotDrawing(room) {
   room.botDrawTimers.push(fallbackTimer);
 
   void loadBotDrawing(card)
-    .then(({ outline, shading }) => {
+    .then(({ outline, coloring, finishing }) => {
       if (!activeBotDrawingRound(room, roundStartedAt)) return;
       drawingStarted = true;
       clearTimeout(fallbackTimer);
-      const outlineBatchSize = 8;
+      const outlineBatchSize = 12;
       const outlineIntervalMs = Math.max(55, Math.min(160, durationMs * 0.0025));
       queueBotSegments(room, roundStartedAt, outline, {
         batchSize: outlineBatchSize,
@@ -1418,10 +1415,20 @@ function scheduleBotDrawing(room) {
       });
       const outlineDurationMs =
         Math.ceil(outline.length / outlineBatchSize) * outlineIntervalMs;
-      queueBotSegments(room, roundStartedAt, shading, {
-        batchSize: 5,
+      const coloringBatchSize = 16;
+      const coloringIntervalMs = Math.max(45, Math.min(100, durationMs * 0.0015));
+      queueBotSegments(room, roundStartedAt, coloring, {
+        batchSize: coloringBatchSize,
         startDelayMs: outlineDurationMs + Math.min(700, durationMs * 0.025),
-        intervalMs: Math.max(65, Math.min(190, durationMs * 0.003)),
+        intervalMs: coloringIntervalMs,
+      });
+      const coloringDurationMs =
+        Math.ceil(coloring.length / coloringBatchSize) * coloringIntervalMs;
+      queueBotSegments(room, roundStartedAt, finishing, {
+        batchSize: 10,
+        startDelayMs:
+          outlineDurationMs + coloringDurationMs + Math.min(900, durationMs * 0.02),
+        intervalMs: Math.max(45, Math.min(100, durationMs * 0.0015)),
       });
     })
     .catch((error) => {

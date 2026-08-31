@@ -61,7 +61,7 @@ test("extracts a bounded normalized outline from contrast data", () => {
   assert.ok(result.threshold > 0);
   for (const segment of result.segments) {
     assert.equal(segment.tool, "brush");
-    assert.ok(segment.size === 2 || segment.size === 2.4);
+    assert.ok(segment.size === 1.45 || segment.size === 2.4);
     assert.match(segment.color, /^#[0-9a-f]{6}$/u);
     assert.ok(
       [segment.x0, segment.y0, segment.x1, segment.y1].every(
@@ -94,11 +94,11 @@ test("supports detail presets, rounded masks, and malformed buffer rejection", (
   assert.ok(simple.segments.length >= 20);
   assert.ok(simple.segments.length < standard.segments.length);
   assert.ok(standard.segments.length < detailed.segments.length);
-  assert.equal(simple.segments[0].size, 2.8);
+  assert.equal(simple.segments[0].size, 2.5);
   assert.equal(standard.segments[0].size, 2.4);
   assert.equal(detailed.segments[0].size, 2.4);
-  assert.equal(standard.segments[48].size, 2.35);
-  assert.equal(detailed.segments[48].size, 2);
+  assert.equal(standard.segments[48].size, 1.9);
+  assert.equal(detailed.segments[48].size, 1.45);
   assert.throws(
     () => buildOutlineSegments({ data: new Uint8ClampedArray(), width: 2, height: 2 }),
     /像素数据/u,
@@ -116,7 +116,11 @@ test("keeps boundaries that differ mainly by color", () => {
   assert.ok(result.paths >= 1);
   assert.ok(result.outline.length >= 48);
   assert.ok(result.coloring.length > 0);
-  assert.deepEqual(result.segments, [...result.outline, ...result.coloring]);
+  assert.ok(result.finishing.length > 0);
+  assert.deepEqual(
+    result.segments,
+    [...result.outline, ...result.coloring, ...result.finishing],
+  );
   assert.ok(result.segments.some((segment) => segment.color !== "#26383d"));
 });
 
@@ -145,10 +149,10 @@ test("uses a calibrated artwork crop for every supported card type", () => {
 test("uses a dedicated CORS cache key for canvas image analysis", () => {
   assert.equal(
     getOutlineImageUrl("https://assets.example.com/card.webp?v=latest"),
-    "https://assets.example.com/card.webp?v=latest&outline=canvas-v4",
+    "https://assets.example.com/card.webp?v=latest&outline=canvas-v5",
   );
   assert.equal(
     getOutlineImageUrl("/api/cards/images/card.png#preview"),
-    "/api/cards/images/card.png?outline=canvas-v4#preview",
+    "/api/cards/images/card.png?outline=canvas-v5#preview",
   );
 });
