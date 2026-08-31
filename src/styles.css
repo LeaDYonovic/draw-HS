@@ -1296,7 +1296,7 @@ textarea:focus {
 }
 
 .game-page {
-  width: min(1440px, calc(100% - 32px));
+  width: min(2320px, calc(100% - 48px));
   min-height: 100vh;
   margin: 0 auto;
   padding: 15px 0 25px;
