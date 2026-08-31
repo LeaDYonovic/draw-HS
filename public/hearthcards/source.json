@@ -1,0 +1,12 @@
+{
+  "source": "https://www.hearthcards.net",
+  "templateVersion": 5,
+  "templates": [
+    "minion",
+    "spell",
+    "weapon",
+    "herocard",
+    "location"
+  ],
+  "assets": 125
+}

@@ -68,6 +68,15 @@ function tagValue(card, tagName) {
   return Number.isFinite(value) ? value : null;
 }
 
+function normalizeRace(...values) {
+  return [...new Set(values
+    .flat(Infinity)
+    .map((value) => typeof value === "object" ? value?.name ?? value?.id ?? "" : value)
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean))]
+    .join("/");
+}
+
 function validCardIdentity({ collectible, id, name, rarity, type }) {
   return collectible &&
     Boolean(name) &&
@@ -92,6 +101,7 @@ function normalizeBugstoneCard(card) {
     health: tagValue(card, "HEALTH"),
     id: String(card.card_id ?? "").trim(),
     name: localizedValue(card.names, "name"),
+    race: normalizeRace(card.card_races, card.races, card.race),
     rarity: RARITY_NAMES.get(card.card_rarities?.[0]?.name ?? "") ?? "",
     set: card.card_sets?.[0]?.name ?? "",
     text: localizedValue(card.texts, "plain_text"),
@@ -113,6 +123,7 @@ function normalizeHearthstoneJsonCard(card) {
     health: Number.isFinite(card.health) ? card.health : null,
     id: String(card.id ?? "").trim(),
     name: String(card.name ?? "").trim(),
+    race: normalizeRace(card.races, card.race),
     rarity: String(card.rarity ?? ""),
     set: String(card.set ?? ""),
     text: String(card.text ?? "").trim(),

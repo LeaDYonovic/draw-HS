@@ -40,6 +40,7 @@ export function loadCardCatalog(filePath, options = {}) {
         set: typeof card.set === "string" ? card.set : "",
         rarity: typeof card.rarity === "string" ? card.rarity : "",
         cardClass: typeof card.cardClass === "string" ? card.cardClass : "",
+        race: typeof card.race === "string" ? card.race : "",
         wordLength: countWordCharacters(card.name.trim()),
         cost: Number.isFinite(card.cost) ? card.cost : null,
         attack: Number.isFinite(card.attack) ? card.attack : null,

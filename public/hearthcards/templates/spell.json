@@ -1,0 +1,472 @@
+{
+  "meta": {
+    "id": "spell",
+    "canvas": {
+      "width": 800,
+      "height": 1100
+    },
+    "exportCrop": {
+      "default": {
+        "top": 30,
+        "right": 40
+      },
+      "legendary": {
+        "top": 30,
+        "right": 0
+      }
+    }
+  },
+  "titleMesh": {
+    "meshType": "spell",
+    "calibration": {
+      "span": 1010,
+      "stretch": 1.7,
+      "height": 256,
+      "scale": 2.3,
+      "cameraZ": 2.3
+    },
+    "placement": {
+      "x": 7,
+      "y": 481,
+      "width": 800,
+      "height": 300
+    }
+  },
+  "artMasks": [
+    {
+      "type": "rectangle",
+      "x": 140,
+      "y": 195,
+      "width": 525,
+      "height": 400
+    }
+  ],
+  "descriptionBox": {
+    "center_y": 877,
+    "maxHeight": 240,
+    "font": "FranklinGothic",
+    "defaultFontSize": 53,
+    "color": [
+      30,
+      23,
+      16
+    ],
+    "shape": [
+      {
+        "y": 0,
+        "x": 162,
+        "width": 481
+      },
+      {
+        "y": 240,
+        "x": 162,
+        "width": 481
+      }
+    ]
+  },
+  "descriptionBoxNew": {
+    "font": "FranklinGothic",
+    "color": [
+      30,
+      23,
+      16
+    ],
+    "defaultFontSize": 40,
+    "minFontSize": 20,
+    "charSize": 5,
+    "lineSpacing": 0.75,
+    "pixelsPerUnit": 271,
+    "widthUnity": 1.7,
+    "heightUnity": 0.82,
+    "useUnderwear": true,
+    "isFlipped": true,
+    "underwearWidthPercent": 0.15,
+    "underwearHeightPercent": 0.05,
+    "resizeEnabled": true,
+    "dropX": 169,
+    "dropY": 781
+  },
+"emblem": {
+    "x": 274,
+    "y": 764,
+    "width": 261,
+    "height": 261,
+    "tribeYOffset": -18,
+    "baseColor": "#d9d9d9",
+    "highlightColor": "#585858",
+    "blend1": "color-burn",
+    "blend2": "color-dodge",
+    "opacity1": 0.95,
+    "opacity2": 0.68
+  },
+  "layers": [
+    {
+      "id": "dropShadow",
+      "type": "static",
+      "x": 144,
+      "y": 198,
+      "width": 517,
+      "height": 421,
+      "src": "Card_Inhand_Spell_DropShadow.webp",
+  "condition": "!Art.disableDropShadow"
+    },
+    {
+      "id": "class",
+      "type": "classMapping",
+      "x": 66,
+      "y": 150,
+      "width": 669,
+      "height": 947,
+      "bindTo": "Class",
+      "assets": {
+        "Neutral": "Card_Inhand_Ability_Neutral.webp",
+        "Warrior": "Card_Inhand_Ability_Warrior.webp",
+        "Shaman": "Card_Inhand_Ability_Shaman.webp",
+        "Rogue": "Card_Inhand_Ability_Rogue.webp",
+        "Paladin": "Card_Inhand_Ability_Paladin.webp",
+        "Hunter": "Card_Inhand_Ability_Hunter.webp",
+        "Druid": "Card_Inhand_Ability_Druid.webp",
+        "Warlock": "Card_Inhand_Ability_Warlock.webp",
+        "Mage": "Card_Inhand_Ability_Mage.webp",
+        "Priest": "Card_Inhand_Ability_Priest.webp",
+        "DemonHunter": "Card_Inhand_Ability_DemonHunter.webp",
+        "DeathKnight": "Card_Inhand_Ability_DeathKnight.webp"
+      }
+    },
+    {
+      "id": "textParchment",
+      "type": "static",
+      "x": 143,
+      "y": 722,
+      "width": 518,
+      "height": 301,
+      "src": "Card_Inhand_BannerAtlas_Spell_Text.webp"
+    },
+    {
+      "id": "stitch",
+      "type": "static",
+      "x": 321,
+      "y": 152,
+      "width": 179,
+      "height": 938,
+      "src": "stiched_spells_bot_new.webp",
+      "condition": "DualClass !== ''"
+    },
+    {
+      "id": "tribePlaque",
+      "type": "static",
+      "x": 114,
+      "y": 952,
+      "width": 575,
+      "height": 107,
+      "src": "Card_Inhand_BannerAtlas_Ability_TribePlaque.webp",
+      "condition": "Tribe !== '' && !/\\s/.test(Tribe)"
+    },
+    {
+      "id": "tribePlaqueDual",
+      "type": "static",
+      "x": 114,
+      "y": 952,
+      "width": 575,
+      "height": 153,
+      "src": "Card_Inhand_BannerAtlas_Ability_TribePlaqueDual.webp",
+      "condition": "Tribe !== '' && /\\s/.test(Tribe)"
+    },
+    {
+      "id": "leftBanner",
+      "type": "dynamic",
+      "x": 48,
+      "y": 128,
+      "width": 171,
+      "height": 349,
+      "bindTo": "Banner",
+      "offsets": [
+        {
+          "condition": "Runes.Slot1 !== ''",
+          "y": 68
+        },
+        {
+          "condition": "Cost.Type === 'BGStars'",
+          "x": 12,
+          "y": 45
+        }
+      ],
+      "duplicateOnCondition": {
+        "condition": "Runes.Slot1 !== ''",
+        "y": 0
+      },
+      "condition": "Banner !== ''"
+    },
+    {
+      "id": "dkRuneHolder",
+      "type": "dynamic",
+      "bindTo": "Runes.Holder",
+      "condition": "Runes.Slot1 !== ''",
+      "defaultSrc": "Deathknight_Card_Hand_RuneHolder.webp?v=1",
+      "prefix": "runes/",
+      "suffix": "/holder.webp",
+      "x": 12,
+      "y": 202,
+      "width": 220,
+      "height": 184
+    },
+    {
+      "id": "dkRune1Large",
+      "type": "dynamic",
+      "bindTo": "Runes.Slot1",
+      "condition": "Runes.Slot1 !== '' && Runes.Slot3 === ''",
+      "x": 10.5,
+      "y": 279.5,
+      "width": 93,
+      "height": 93
+    },
+    {
+      "id": "dkRune1Small",
+      "type": "dynamic",
+      "bindTo": "Runes.Slot1",
+      "condition": "Runes.Slot1 !== '' && Runes.Slot3 !== ''",
+      "x": 16.5,
+      "y": 285.5,
+      "width": 81,
+      "height": 81
+    },
+    {
+      "id": "dkRune2Large",
+      "type": "dynamic",
+      "bindTo": "Runes.Slot2",
+      "condition": "Runes.Slot2 !== '' && Runes.Slot3 === ''",
+      "x": 76.5,
+      "y": 301.5,
+      "width": 93,
+      "height": 93
+    },
+    {
+      "id": "dkRune2Small",
+      "type": "dynamic",
+      "bindTo": "Runes.Slot2",
+      "condition": "Runes.Slot2 !== '' && Runes.Slot3 !== ''",
+      "x": 82.5,
+      "y": 307.5,
+      "width": 81,
+      "height": 81
+    },
+    {
+      "id": "dkRune3Small",
+      "type": "dynamic",
+      "bindTo": "Runes.Slot3",
+      "condition": "Runes.Slot3 !== ''",
+      "x": 145.5,
+      "y": 284.5,
+      "width": 81,
+      "height": 81
+    },
+    {
+      "id": "chronumCost",
+      "type": "static",
+      "x": 7,
+      "y": 332,
+      "width": 216,
+      "height": 214,
+      "src": "ChronumCost.png",
+      "condition": "ChronumCost > 0"
+    },
+    {
+      "id": "manaGem",
+      "type": "static",
+      "x": 33,
+      "y": 114,
+      "width": 179,
+      "height": 181,
+      "src": "Card_Inhand_BannerAtlas_Minion_ManaGem.webp",
+      "condition": "Cost.Type === 'Mana'"
+    },
+    {
+      "id": "armorCost",
+      "type": "static",
+      "x": 33,
+      "y": 104,
+      "width": 178,
+      "height": 208,
+      "src": "heroshieldbannertexture.webp",
+      "condition": "Cost.Type === 'ArmorCost'"
+    },
+    {
+      "id": "healthCost",
+      "type": "static",
+      "x": 25,
+      "y": 70,
+      "width": 170,
+      "height": 231,
+      "src": "healthtexture.webp",
+      "condition": "Cost.Type === 'HealthCost'"
+    },
+    {
+      "id": "coin",
+      "type": "static",
+      "x": 27,
+      "y": 110,
+      "width": 187,
+      "height": 187,
+      "src": "Card_Inhand_BannerAtlas_Minion_Coin.webp",
+      "condition": "Cost.Type === 'Coin'"
+    },
+    {
+      "id": "runestone",
+      "type": "static",
+      "x": 18,
+      "y": 85,
+      "width": 237,
+      "height": 244,
+      "src": "Card_Inhand_BannerAtlas_Minion_Runestone.webp",
+      "condition": "Cost.Type === 'Runestone'"
+    },
+    {
+      "id": "legendaryDragon",
+      "type": "static",
+      "x": 216,
+      "y": 90,
+      "width": 609,
+      "height": 333,
+      "src": "Card_Inhand_Ability_LegendaryDragon.webp",
+      "condition": "Overwrite.Dragon === 'show' || (Rarity === 'Legendary' && Overwrite.Dragon !== 'hide')"
+    },
+    {
+      "id": "rightBanner",
+      "type": "dynamic",
+      "x": 637,
+      "y": 340,
+      "width": 122,
+      "height": 159,
+      "bindTo": "RightBanner",
+      "condition": "RightBanner !== ''"
+    },
+    {
+      "id": "rarity",
+      "type": "mapped",
+      "x": 320,
+      "y": 669,
+      "width": 171,
+      "height": 94,
+      "bindTo": "Rarity",
+      "assets": {
+        "Common": "Card_Inhand_Spell_Gem_Common.webp",
+        "Rare": "Card_Inhand_Spell_Gem_Rare.webp",
+        "Epic": "Card_Inhand_Spell_Gem_Epic.webp",
+        "Legendary": "Card_Inhand_Spell_Gem_Legendary.webp"
+      }
+    },
+    {
+      "id": "textBanner",
+      "type": "static",
+      "x": 82,
+      "y": 563,
+      "width": 647,
+      "height": 199,
+      "src": "Card_Inhand_BannerAtlas_Spell_Title.webp"
+    },
+    {
+      "id": "bGStars",
+      "type": "mapped",
+      "x": 33,
+      "y": 114,
+      "width": 213, "height": 230, 
+      "bindTo": "Cost.Value",
+      "assets": {
+        "0": "Card_Inhand_BannerAtlas_Minion_BGStars0.webp",
+        "1": "Card_Inhand_BannerAtlas_Minion_BGStars1.webp",
+        "2": "Card_Inhand_BannerAtlas_Minion_BGStars2.webp",
+        "3": "Card_Inhand_BannerAtlas_Minion_BGStars3.webp",
+        "4": "Card_Inhand_BannerAtlas_Minion_BGStars4.webp",
+        "5": "Card_Inhand_BannerAtlas_Minion_BGStars5.webp",
+        "6": "Card_Inhand_BannerAtlas_Minion_BGStars6.webp",
+        "7": "Card_Inhand_BannerAtlas_Minion_BGStars7.webp"
+      },
+      "condition": "Cost.Type === 'BGStars'"
+    }
+  ],
+  "texts": [
+    {
+      "bindTo": "Title",
+      "renderType": "path",
+      "pathD": "m 107.00,682.00 c 0,0 290.37,-118.96 598.64,0",
+      "fontFamily": "Belwe, serif",
+      "fontSize": 55,
+      "maxWidth": 575,
+      "strokeWidth": 8.6,
+      "fill": "#ffffff",
+      "stroke": "#000000"
+    },
+    {
+      "bindTo": "Cost.Value",
+      "renderType": "rect",
+      "x": -21.6,
+      "y": 200,
+      "width": 286.5,
+      "height": 124,
+      "fontFamily": "Belwe, serif",
+      "fontSize": 173.3,
+      "fill": "#ffffff",
+      "stroke": "#0a0805",
+      "strokeWidth": 10,
+      "condition": "Cost.Type !== 'BGStars'"
+    },
+    {
+      "bindTo": "ChronumCost",
+      "renderType": "rect",
+      "x": -27.6,
+      "y": 440,
+      "width": 286.5,
+      "height": 124,
+      "fontFamily": "Belwe, serif",
+      "fontSize": 180,
+      "fill": "#ffffff",
+      "stroke": "#0a0805",
+      "strokeWidth": 10,
+      "condition": "ChronumCost > 0"
+    },
+    {
+      "bindTo": "Tribe",
+      "renderType": "rect",
+      "x": 237,
+      "y": 1025,
+      "width": 328,
+      "height": 70,
+      "fontFamily": "Belwe, serif",
+      "fontSize": 48,
+      "fill": "#ffffff",
+      "stroke": "#0a0805",
+      "strokeWidth": 6,
+      "condition": "!/\\s/.test(Tribe)"
+    },
+    {
+      "bindTo": "Tribe",
+      "renderType": "rect",
+      "x": 240,
+      "y": 1024,
+      "width": 328,
+      "height": 70,
+      "fontFamily": "Belwe, serif",
+      "fontSize": 50,
+      "fill": "#ffffff",
+      "stroke": "#0a0805",
+      "strokeWidth": 7,
+      "valueTransform": "split_0",
+      "condition": "/\\s/.test(Tribe)"
+    },
+    {
+      "bindTo": "Tribe",
+      "renderType": "rect",
+      "x": 240,
+      "y": 1068,
+      "width": 328,
+      "height": 70,
+      "fontFamily": "Belwe, serif",
+      "fontSize": 50,
+      "fill": "#ffffff",
+      "stroke": "#0a0805",
+      "strokeWidth": 7,
+      "valueTransform": "split_1",
+      "condition": "/\\s/.test(Tribe)"
+    }
+  ]
+}

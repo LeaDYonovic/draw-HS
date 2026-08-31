@@ -80,16 +80,20 @@ export interface CardPreview {
   attack: number | null;
   health: number | null;
   armor: number | null;
+  cardClass: string;
+  rarity: string;
+  race: string;
+  text: string;
   type: string;
   imageUrl: string;
 }
 
 export interface ClueCardPreview {
-  imageUrl: string;
+  type: string;
 }
 
 export interface RoundClueField {
-  key: "length" | "type" | "class" | "rarity" | "cost" | "stats" | "text";
+  key: "length" | "type" | "class" | "rarity" | "cost" | "stats" | "text" | "race";
   label: string;
   value: string;
   source: "base" | "scope" | "hint" | "hidden";
@@ -168,17 +172,7 @@ export interface CanvasSegment {
   tool: "brush" | "eraser";
 }
 
-export interface CardSearchResult {
-  id: string;
-  name: string;
-  wordLength: number;
-  cost: number | null;
-  attack: number | null;
-  health: number | null;
-  armor: number | null;
-  type: string;
-  imageUrl: string;
-}
+export interface CardSearchResult extends CardPreview {}
 
 export interface CardSearchResponse {
   results: CardSearchResult[];

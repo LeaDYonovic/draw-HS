@@ -55,8 +55,10 @@ test("retains card descriptions for staged clue reveals", () => {
     path.join(root, "collectible_cards_zhCN.full.json"),
   );
   const librarian = cards.find((card) => card.name === "夜色镇图书管理员");
+  const arfus = cards.find((card) => card.name === "阿尔福斯");
 
   assert.match(librarian.text, /随机弃一张牌/u);
+  assert.equal(arfus.race, "UNDEAD/BEAST");
 });
 
 test("normalizes spacing and punctuation in guesses", () => {

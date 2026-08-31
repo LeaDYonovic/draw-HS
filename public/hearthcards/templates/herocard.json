@@ -1,0 +1,381 @@
+{
+  "meta": {
+    "id": "herocard",
+    "canvas": {
+      "width": 800,
+      "height": 1100
+    },
+    "exportCrop": {
+      "default": {
+        "top": 25,
+        "right": 40
+      },
+      "legendary": {
+        "top": 25,
+        "right": 40
+      }
+    }
+  },
+  "artMasks": [
+    {
+      "type": "rectangle",
+      "x": 210,
+      "y": 156,
+      "width": 381,
+      "height": 437
+    }
+  ],
+  "descriptionBox": {
+    "center_y": 880,
+    "maxHeight": 205,
+    "font": "FranklinGothic",
+    "defaultFontSize": 54,
+    "color": [
+      30,
+      23,
+      16
+    ],
+    "shape": [
+      {
+        "y": 0,
+        "x": 165,
+        "width": 470
+      },
+      {
+        "y": 240,
+        "x": 165,
+        "width": 470
+      }
+    ]
+  },
+  "descriptionBoxNew": {
+    "font": "FranklinGothic",
+    "color": [
+      30,
+      23,
+      16
+    ],
+    "defaultFontSize": 40,
+    "minFontSize": 20,
+    "charSize": 5,
+    "lineSpacing": 0.75,
+    "pixelsPerUnit": 271,
+    "widthUnity": 1.7,
+    "heightUnity": 0.82,
+    "useUnderwear": true,
+    "isFlipped": true,
+    "underwearWidthPercent": 0.17,
+    "underwearHeightPercent": 0.13,
+    "resizeEnabled": true,
+    "dropX": 168,
+    "dropY": 781
+  },
+"emblem": {
+    "x": 292,
+    "y": 779,
+    "width": 220,
+    "height": 220,
+    "baseColor": "#d9d9d9",
+    "highlightColor": "#585858",
+    "blend1": "color-burn",
+    "blend2": "color-dodge",
+    "opacity1": 0.95,
+    "opacity2": 0.68
+  },
+  "layers": [
+    {
+      "id": "dropShadow",
+      "type": "static",
+      "x": 108,
+      "y": 119,
+      "width": 583,
+      "height": 493,
+      "src": "Card_Inhand_Location_DropShadow.webp"
+    },
+    {
+      "id": "class",
+      "type": "classMapping",
+      "x": 66,
+      "y": 92,
+      "width": 669,
+      "height": 1007,
+      "bindTo": "Class",
+      "assets": {
+        "Neutral": "Card_Inhand_HeroCard_Neutral.webp",
+        "Warrior": "Card_Inhand_HeroCard_Warrior.webp",
+        "Shaman": "Card_Inhand_HeroCard_Shaman.webp",
+        "Rogue": "Card_Inhand_HeroCard_Rogue.webp",
+        "Paladin": "Card_Inhand_HeroCard_Paladin.webp",
+        "Hunter": "Card_Inhand_HeroCard_Hunter.webp",
+        "Druid": "Card_Inhand_HeroCard_Druid.webp",
+        "Warlock": "Card_Inhand_HeroCard_Warlock.webp",
+        "Mage": "Card_Inhand_HeroCard_Mage.webp",
+        "Priest": "Card_Inhand_HeroCard_Priest.webp",
+        "DemonHunter": "Card_Inhand_HeroCard_DemonHunter.webp",
+        "DeathKnight": "Card_Inhand_HeroCard_DeathKnight.webp?v=1"
+      }
+    },
+    {
+      "id": "stitch",
+      "type": "static",
+      "x": 361,
+      "y": 1051,
+      "width": 82,
+      "height": 36,
+      "src": "stiched_herocard_bot_new.webp",
+      "condition": "DualClass !== ''"
+    },
+    {
+      "id": "rarity",
+      "type": "mapped",
+      "x": 298,
+      "y": 654,
+      "width": 211,
+      "height": 193,
+      "bindTo": "Rarity",
+      "assets": {
+        "Common": "Card_Inhand_HeroCard_Gem_Common.webp",
+        "Rare": "Card_Inhand_HeroCard_Gem_Rare.webp",
+        "Epic": "Card_Inhand_HeroCard_Gem_Epic.webp",
+        "Legendary": "Card_Inhand_HeroCard_Gem_Legendary.webp"
+      }
+    },
+    {
+      "id": "leftBanner",
+      "type": "dynamic",
+      "x": 48,
+      "y": 128,
+      "width": 171,
+      "height": 349,
+      "bindTo": "Banner",
+      "offsets": [
+        {
+          "condition": "Runes.Slot1 !== ''",
+          "y": 68
+        },
+        {
+          "condition": "Cost.Type === 'BGStars'",
+          "x": 12,
+          "y": 45
+        }
+      ],
+      "duplicateOnCondition": {
+        "condition": "Runes.Slot1 !== ''",
+        "y": 0
+      },
+      "condition": "Banner !== ''"
+    },
+    {
+      "id": "dkRuneHolder",
+      "type": "dynamic",
+      "bindTo": "Runes.Holder",
+      "condition": "Runes.Slot1 !== ''",
+      "defaultSrc": "Deathknight_Card_Hand_RuneHolder.webp?v=1",
+      "prefix": "runes/",
+      "suffix": "/holder.webp",
+      "x": 12,
+      "y": 202,
+      "width": 220,
+      "height": 184
+    },
+    {
+      "id": "dkRune1Large",
+      "type": "dynamic",
+      "bindTo": "Runes.Slot1",
+      "condition": "Runes.Slot1 !== '' && Runes.Slot3 === ''",
+      "x": 10.5,
+      "y": 279.5,
+      "width": 93,
+      "height": 93
+    },
+    {
+      "id": "dkRune1Small",
+      "type": "dynamic",
+      "bindTo": "Runes.Slot1",
+      "condition": "Runes.Slot1 !== '' && Runes.Slot3 !== ''",
+      "x": 16.5,
+      "y": 285.5,
+      "width": 81,
+      "height": 81
+    },
+    {
+      "id": "dkRune2Large",
+      "type": "dynamic",
+      "bindTo": "Runes.Slot2",
+      "condition": "Runes.Slot2 !== '' && Runes.Slot3 === ''",
+      "x": 76.5,
+      "y": 301.5,
+      "width": 93,
+      "height": 93
+    },
+    {
+      "id": "dkRune2Small",
+      "type": "dynamic",
+      "bindTo": "Runes.Slot2",
+      "condition": "Runes.Slot2 !== '' && Runes.Slot3 !== ''",
+      "x": 82.5,
+      "y": 307.5,
+      "width": 81,
+      "height": 81
+    },
+    {
+      "id": "dkRune3Small",
+      "type": "dynamic",
+      "bindTo": "Runes.Slot3",
+      "condition": "Runes.Slot3 !== ''",
+      "x": 145.5,
+      "y": 284.5,
+      "width": 81,
+      "height": 81
+    },
+    {
+      "id": "bGStars",
+      "type": "mapped",
+      "x": 33,
+      "y": 114,
+      "width": 213,
+      "height": 230,
+      "bindTo": "Cost.Value",
+      "assets": {
+        "0": "Card_Inhand_BannerAtlas_Minion_BGStars0.webp",
+        "1": "Card_Inhand_BannerAtlas_Minion_BGStars1.webp",
+        "2": "Card_Inhand_BannerAtlas_Minion_BGStars2.webp",
+        "3": "Card_Inhand_BannerAtlas_Minion_BGStars3.webp",
+        "4": "Card_Inhand_BannerAtlas_Minion_BGStars4.webp",
+        "5": "Card_Inhand_BannerAtlas_Minion_BGStars5.webp",
+        "6": "Card_Inhand_BannerAtlas_Minion_BGStars6.webp",
+        "7": "Card_Inhand_BannerAtlas_Minion_BGStars7.webp"
+      },
+      "condition": "Cost.Type === 'BGStars'"
+    },
+    {
+      "id": "manaGem",
+      "type": "static",
+      "x": 33,
+      "y": 114,
+      "width": 179,
+      "height": 181,
+      "src": "Card_Inhand_BannerAtlas_Minion_ManaGem.webp",
+      "condition": "Cost.Type === 'Mana'"
+    },
+    {
+      "id": "armorCost",
+      "type": "static",
+      "x": 33,
+      "y": 104,
+      "width": 178,
+      "height": 208,
+      "src": "heroshieldbannertexture.webp",
+      "condition": "Cost.Type === 'ArmorCost'"
+    },
+    {
+      "id": "healthCost",
+      "type": "static",
+      "x": 25,
+      "y": 70,
+      "width": 170,
+      "height": 231,
+      "src": "healthtexture.webp",
+      "condition": "Cost.Type === 'HealthCost'"
+    },
+    {
+      "id": "coin",
+      "type": "static",
+      "x": 27,
+      "y": 110,
+      "width": 187,
+      "height": 187,
+      "src": "Card_Inhand_BannerAtlas_Minion_Coin.webp",
+      "condition": "Cost.Type === 'Coin'"
+    },
+    {
+      "id": "runestone",
+      "type": "static",
+      "x": 18,
+      "y": 85,
+      "width": 237,
+      "height": 244,
+      "src": "Card_Inhand_BannerAtlas_Minion_Runestone.webp",
+      "condition": "Cost.Type === 'Runestone'"
+    },
+    {
+      "id": "textBanner",
+      "type": "static",
+      "x": 94,
+      "y": 561,
+      "width": 625,
+      "height": 158,
+      "src": "Card_Inhand_BannerAtlas_HeroCard_Title.webp"
+    },
+    {
+      "id": "legendaryDragon",
+      "type": "static",
+      "x": 196,
+      "y": 27,
+      "width": 567,
+      "height": 375,
+      "src": "Card_Inhand_HeroCard_LegendaryDragon.webp",
+      "condition": "Overwrite.Dragon === 'show' || (Rarity === 'Legendary' && Overwrite.Dragon !== 'hide')"
+    },
+    {
+      "id": "rightBanner",
+      "type": "dynamic",
+      "x": 629,
+      "y": 349,
+      "width": 122,
+      "height": 159,
+      "bindTo": "RightBanner",
+      "condition": "RightBanner !== ''"
+    },
+    {
+      "id": "health",
+      "type": "static",
+      "x": 608,
+      "y": 938,
+      "width": 149,
+      "height": 174,
+      "src": "heroshieldbannertexture.webp",
+      "condition": "Health !== ''"
+    }
+  ],
+  "texts": [
+    {
+      "bindTo": "Title",
+      "renderType": "path",
+      "pathD": "m 105.68,702.29 c 0,0 290.37,-158.96 598.64,0",
+      "fontFamily": "Belwe, serif",
+      "fontSize": 58,
+      "maxWidth": 557,
+      "strokeWidth": 8.6,
+      "fill": "#ffffff",
+      "stroke": "#000000"
+    },
+    {
+      "bindTo": "Cost.Value",
+      "renderType": "rect",
+      "x": -21.6,
+      "y": 200,
+      "width": 286.5,
+      "height": 124,
+      "fontFamily": "Belwe, serif",
+      "fontSize": 180,
+      "fill": "#ffffff",
+      "stroke": "#0a0805",
+      "strokeWidth": 10,
+      "condition": "Cost.Type !== 'BGStars'"
+    },
+    {
+      "bindTo": "Health",
+      "renderType": "rect",
+      "x": 543.7,
+      "y": 1028,
+      "width": 286.5,
+      "height": 124,
+      "fontFamily": "Belwe, serif",
+      "fontSize": 173.3,
+      "fill": "#ffffff",
+      "stroke": "#0a0805",
+      "strokeWidth": 10
+    }
+  ]
+}

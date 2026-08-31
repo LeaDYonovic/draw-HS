@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { CardImage } from "./components/CardImage";
-import {
-  CARD_MASK_LAYERS,
-  CardMaskWidget,
-  isCardMaskLayerOpened,
-} from "./components/CardMaskWidget";
+import { ClueCardWidget } from "./components/ClueCardWidget";
 import type {
-  CardMaskLayerKey,
-  CardMaskLayerOverrides,
-} from "./components/CardMaskWidget";
-import type { CardPreview, CardSearchResponse } from "./types";
+  CardPreview,
+  CardSearchResponse,
+  RoundClueField,
+} from "./types";
 
 const CARD_BANKS = [
   { id: "minion", label: "随从" },
@@ -21,9 +17,20 @@ const CARD_BANKS = [
 ] as const;
 
 const STAGE_PRESETS = [
-  { stage: 0, label: "完整封印", detail: "所有贴纸保留" },
-  { stage: 1, label: "费用揭示", detail: "移除费用贴纸" },
-  { stage: 2, label: "属性揭示", detail: "移除属性与描述" },
+  { stage: 0, label: "卡身建立", detail: "类型卡框与空白插画" },
+  { stage: 1, label: "身份成形", detail: "职业边框、龙纹与宝石" },
+  { stage: 2, label: "信息完成", detail: "费用、属性、描述与种族" },
+  { stage: 3, label: "完整揭晓", detail: "直接替换为原始卡图" },
+] as const;
+
+const ASSEMBLY_PARTS = [
+  { label: "类型卡身", stage: 0 },
+  { label: "职业色边框", stage: 1 },
+  { label: "稀有度龙纹", stage: 1 },
+  { label: "中央稀有宝石", stage: 1 },
+  { label: "费用与类型属性", stage: 2 },
+  { label: "描述与种族铭牌", stage: 2 },
+  { label: "完整原始卡图", stage: 3 },
 ] as const;
 
 const TYPE_LABELS: Record<string, string> = {
@@ -34,11 +41,70 @@ const TYPE_LABELS: Record<string, string> = {
   LOCATION: "地标",
 };
 
+const CLASS_LABELS: Record<string, string> = {
+  DEATHKNIGHT: "死亡骑士",
+  DEMONHUNTER: "恶魔猎手",
+  DRUID: "德鲁伊",
+  HUNTER: "猎人",
+  MAGE: "法师",
+  NEUTRAL: "中立",
+  PALADIN: "圣骑士",
+  PRIEST: "牧师",
+  ROGUE: "潜行者",
+  SHAMAN: "萨满祭司",
+  WARLOCK: "术士",
+  WARRIOR: "战士",
+};
+
+const RARITY_LABELS: Record<string, string> = {
+  LEGENDARY: "传说",
+  EPIC: "史诗",
+  RARE: "稀有",
+  COMMON: "普通",
+  FREE: "基础",
+};
+
+function clueField(
+  key: RoundClueField["key"],
+  label: string,
+  value: string,
+  visible: boolean,
+): RoundClueField {
+  return {
+    key,
+    label,
+    value: visible && value ? value : "待揭示",
+    source: visible ? "hint" : "hidden",
+  };
+}
+
+function cardStats(card: CardPreview) {
+  if (card.type === "MINION") return `${card.attack ?? "-"} 攻 / ${card.health ?? "-"} 血`;
+  if (card.type === "WEAPON" || card.type === "LOCATION") return `${card.health ?? "-"} 点耐久`;
+  if (card.type === "HERO") return `${card.armor ?? "-"} 点护甲`;
+  return "";
+}
+
+function buildDebugFields(card: CardPreview, stage: number): RoundClueField[] {
+  const fields: RoundClueField[] = [
+    { key: "length", label: "字数", value: `${card.wordLength} 个字`, source: "base" },
+    { key: "type", label: "类型", value: TYPE_LABELS[card.type] ?? card.type, source: "base" },
+    clueField("class", "职业", CLASS_LABELS[card.cardClass] ?? card.cardClass, stage >= 1),
+    clueField("rarity", "稀有度", RARITY_LABELS[card.rarity] ?? card.rarity, stage >= 1),
+    clueField("cost", "费用", Number.isFinite(card.cost) ? `${card.cost} 费` : "无费用", stage >= 2),
+  ];
+  const stats = cardStats(card);
+  if (stats) fields.push(clueField("stats", card.type === "HERO" ? "护甲" : "属性", stats, stage >= 2));
+  if (card.type === "MINION") fields.push(clueField("race", "种族", card.race || "无种族", stage >= 2));
+  fields.push(clueField("text", "卡牌描述", card.text || "无卡牌描述", stage >= 2));
+  return fields;
+}
+
 function cardFacts(card: CardPreview) {
   const facts = [`${TYPE_LABELS[card.type] ?? "卡牌"} · ${card.wordLength} 字`, `费用 ${card.cost ?? "-"}`];
-  if (card.type === "MINION") facts.push(`攻击 ${card.attack ?? "-"}`, `生命 ${card.health ?? "-"}`);
-  if (card.type === "WEAPON" || card.type === "LOCATION") facts.push(`耐久 ${card.health ?? "-"}`);
-  if (card.type === "HERO") facts.push(`护甲 ${card.armor ?? "-"}`);
+  const stats = cardStats(card);
+  if (stats) facts.push(stats);
+  if (card.type === "MINION") facts.push(card.race || "无种族");
   return facts;
 }
 
@@ -48,7 +114,6 @@ export function MaskDebugPage() {
   const [cards, setCards] = useState<CardPreview[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardPreview | null>(null);
   const [stage, setStage] = useState(0);
-  const [layerOverrides, setLayerOverrides] = useState<CardMaskLayerOverrides>({});
   const [previewWidth, setPreviewWidth] = useState(390);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -81,6 +146,7 @@ export function MaskDebugPage() {
 
   const chooseBank = (nextBank: string) => {
     setBank(nextBank);
+    setStage(0);
     void loadCards(nextBank, query);
   };
 
@@ -89,35 +155,18 @@ export function MaskDebugPage() {
     void loadCards(bank, query);
   };
 
-  const applyStage = (nextStage: number) => {
-    setStage(nextStage);
-    setLayerOverrides({});
-  };
-
-  const toggleLayer = (key: CardMaskLayerKey) => {
-    const layer = CARD_MASK_LAYERS.find((item) => item.key === key);
-    if (!layer) return;
-    const opened = isCardMaskLayerOpened(layer, stage, layerOverrides);
-    setLayerOverrides((current) => ({ ...current, [key]: !opened }));
-  };
-
-  const showFullCard = () => {
-    setLayerOverrides(Object.fromEntries(
-      CARD_MASK_LAYERS.map((layer) => [layer.key, true]),
-    ) as CardMaskLayerOverrides);
-  };
-
-  const maskStyle = {
+  const previewStyle = {
     "--mask-preview-width": `${previewWidth}px`,
   } as CSSProperties;
+  const fields = selectedCard ? buildDebugFields(selectedCard, stage) : [];
 
   return (
     <main className="mask-debug-page">
       <header className="mask-debug-header">
         <div>
-          <span>MASK LAB · TEMPORARY TOOL</span>
-          <h1>卡牌遮挡实验台</h1>
-          <p>这里与正式答题页共用同一个 CardMaskWidget，调试结果不会影响房间和计分。</p>
+          <span>CARD ASSEMBLY · TEMPORARY TOOL</span>
+          <h1>线索卡牌拼装实验台</h1>
+          <p>正式答题页共用同一个 ClueCardWidget；插画始终留白，结算时直接替换完整卡图。</p>
         </div>
         <a href="/">返回游戏大厅</a>
       </header>
@@ -130,33 +179,19 @@ export function MaskDebugPage() {
           </div>
           <div className="mask-bank-tabs">
             {CARD_BANKS.map((option) => (
-              <button
-                className={bank === option.id ? "active" : ""}
-                key={option.id}
-                onClick={() => chooseBank(option.id)}
-                type="button"
-              >
+              <button className={bank === option.id ? "active" : ""} key={option.id} onClick={() => chooseBank(option.id)} type="button">
                 {option.label}
               </button>
             ))}
           </div>
           <form className="mask-card-search" onSubmit={search}>
-            <input
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="按卡牌名称检索"
-              value={query}
-            />
+            <input onChange={(event) => setQuery(event.target.value)} placeholder="按卡牌名称检索" value={query} />
             <button disabled={loading} type="submit">{loading ? "载入中" : "检索"}</button>
           </form>
           {error && <div className="mask-debug-error">{error}</div>}
           <div className="mask-card-results">
             {cards.map((card) => (
-              <button
-                className={selectedCard?.id === card.id ? "active" : ""}
-                key={card.id}
-                onClick={() => setSelectedCard(card)}
-                type="button"
-              >
+              <button className={selectedCard?.id === card.id ? "active" : ""} key={card.id} onClick={() => { setSelectedCard(card); setStage(0); }} type="button">
                 <CardImage card={card} />
                 <span><strong>{card.name}</strong><small>{TYPE_LABELS[card.type] ?? "卡牌"}</small></span>
               </button>
@@ -167,84 +202,59 @@ export function MaskDebugPage() {
 
         <section className="mask-debug-stage">
           <div className="mask-debug-panel-heading">
-            <div><span>02</span><strong>实时遮挡预览</strong></div>
+            <div><span>02</span><strong>实时拼装预览</strong></div>
             <small>{selectedCard?.name ?? "等待选择"}</small>
           </div>
           <div className="mask-preview-surface">
             {selectedCard ? (
-              <CardMaskWidget
-                cardName={selectedCard.name}
+              <ClueCardWidget
+                card={{ type: selectedCard.type }}
                 className="mask-debug-card-widget"
-                imageUrl={selectedCard.imageUrl}
-                layerOverrides={layerOverrides}
+                fields={fields}
+                fullCard={selectedCard}
+                revealed={stage >= 3}
                 stage={stage}
-                style={maskStyle}
+                style={previewStyle}
               />
-            ) : (
-              <div className="mask-preview-empty">选择一张卡牌开始测试</div>
-            )}
+            ) : <div className="mask-preview-empty">选择一张卡牌开始测试</div>}
           </div>
           <div className="mask-preview-caption">
-            <strong>{selectedCard?.name ?? "未选择卡牌"}</strong>
+            <strong>{stage >= 3 ? selectedCard?.name : "卡名待揭晓"}</strong>
             <div>{selectedCard?.type && cardFacts(selectedCard).map((fact) => <span key={fact}>{fact}</span>)}</div>
           </div>
         </section>
 
         <aside className="mask-debug-controls">
           <div className="mask-debug-panel-heading">
-            <div><span>03</span><strong>遮挡控制</strong></div>
+            <div><span>03</span><strong>拼装控制</strong></div>
             <small>即时生效</small>
           </div>
-
           <section className="mask-control-group">
-            <header><strong>阶段预设</strong><small>模拟正式倒计时</small></header>
+            <header><strong>阶段预设</strong><small>模拟正式倒计时与结算</small></header>
             <div className="mask-stage-presets">
               {STAGE_PRESETS.map((preset) => (
-                <button
-                  className={stage === preset.stage && Object.keys(layerOverrides).length === 0 ? "active" : ""}
-                  key={preset.stage}
-                  onClick={() => applyStage(preset.stage)}
-                  type="button"
-                >
+                <button className={stage === preset.stage ? "active" : ""} key={preset.stage} onClick={() => setStage(preset.stage)} type="button">
                   <span>{preset.stage}</span><strong>{preset.label}</strong><small>{preset.detail}</small>
                 </button>
               ))}
             </div>
           </section>
-
           <section className="mask-control-group">
-            <header><strong>独立图层</strong><small>打开表示移除贴纸</small></header>
-            <div className="mask-layer-list">
-              {CARD_MASK_LAYERS.map((layer) => {
-                const opened = isCardMaskLayerOpened(layer, stage, layerOverrides);
-                return (
-                  <button className={opened ? "opened" : ""} key={layer.key} onClick={() => toggleLayer(layer.key)} type="button">
-                    <i /><span><strong>{layer.label}</strong><small>{opened ? "已揭示" : "遮挡中"}</small></span>
-                  </button>
-                );
+            <header><strong>卡面部件</strong><small>随阶段逐步装配</small></header>
+            <div className="mask-layer-list assembly-part-list">
+              {ASSEMBLY_PARTS.map((part) => {
+                const assembled = stage >= part.stage;
+                return <div className={assembled ? "assembled" : ""} key={part.label}><i /><span><strong>{part.label}</strong><small>{assembled ? "已装配" : "等待中"}</small></span></div>;
               })}
             </div>
-            <div className="mask-bulk-actions">
-              <button onClick={() => applyStage(0)} type="button">恢复全部遮挡</button>
-              <button onClick={showFullCard} type="button">移除全部遮挡</button>
-            </div>
           </section>
-
           <section className="mask-control-group mask-size-control">
             <header><strong>预览尺寸</strong><small>{previewWidth}px</small></header>
-            <input
-              max="500"
-              min="260"
-              onChange={(event) => setPreviewWidth(Number(event.target.value))}
-              step="10"
-              type="range"
-              value={previewWidth}
-            />
+            <input max="500" min="260" onChange={(event) => setPreviewWidth(Number(event.target.value))} step="10" type="range" value={previewWidth} />
           </section>
-
           {selectedCard && (
             <section className="mask-original-reference">
-              <header><strong>完整卡面参考</strong><small>仅用于对位</small></header>
+              <header><strong>结算卡面参考</strong><small>仅在阶段 3 替换显示</small></header>
               <CardImage card={selectedCard} loading="eager" />
             </section>
           )}

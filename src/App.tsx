@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CanvasBoard } from "./components/CanvasBoard";
 import { CardImage } from "./components/CardImage";
-import { CardMaskWidget } from "./components/CardMaskWidget";
+import { ClueCardWidget } from "./components/ClueCardWidget";
 import { emitWithAck, socket } from "./realtime";
 import { calculateScore } from "./score-rules.mjs";
 import type {
@@ -1018,7 +1018,7 @@ function GameRoom({
 
         <div className={`round-prompt-column ${clueRevealActive ? "card-centered" : ""}`}>
           {room.phase === "drawing" && !room.isDrawer && round?.clues && round.clueCard
-            ? <ClueCardReveal card={round.clueCard} stage={round.clues.stage} />
+            ? <ClueCardReveal card={round.clueCard} fields={round.clues.fields} stage={round.clues.stage} />
             : roundPrompt}
         </div>
 
@@ -1142,14 +1142,16 @@ function GameRoom({
 
 function ClueCardReveal({
   card,
+  fields,
   stage,
 }: {
   card: NonNullable<NonNullable<RoomState["round"]>["clueCard"]>;
+  fields: NonNullable<NonNullable<RoomState["round"]>["clues"]>["fields"];
   stage: number;
 }) {
   return (
     <aside className={`drawer-reference clue-card-reference stage-${stage}`} aria-label="逐步解密的提示卡牌">
-      <CardMaskWidget imageUrl={card.imageUrl} stage={stage} />
+      <ClueCardWidget card={card} fields={fields} stage={stage} />
     </aside>
   );
 }

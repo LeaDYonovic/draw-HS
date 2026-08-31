@@ -154,20 +154,16 @@ async function startRound(t, answerMode = "choice", settings = {}, runtime = {})
   );
   assert.equal(drawerDrawing.round.clueCard, null);
   assert.equal(drawing.round.referenceCard, null);
-  assert.deepEqual(Object.keys(drawing.round.clueCard), ["imageUrl"]);
-  assert.match(
-    drawing.round.clueCard.imageUrl,
-    /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u,
-  );
+  assert.deepEqual(Object.keys(drawing.round.clueCard), ["type"]);
+  assert.equal(drawing.round.clueCard.type, choosing.round.optionCards[0].type);
   assert.equal(drawing.round.durationMs, runtime.roundTimeMs ?? 1_000);
   assert.equal(drawing.round.clues.stage, 0);
   assert.equal(drawing.round.clues.range, drawing.wordBankName);
   assert.equal(drawing.round.clues.scoreBand.maximum, 100);
   assert.equal(drawing.round.clues.scoreBand.minimum, 80);
-  assert.equal(
-    drawing.round.clues.fields.length,
-    choosing.round.optionCards[0].type === "SPELL" ? 6 : 7,
-  );
+  const answerType = choosing.round.optionCards[0].type;
+  const expectedFieldCount = answerType === "SPELL" ? 6 : answerType === "MINION" ? 8 : 7;
+  assert.equal(drawing.round.clues.fields.length, expectedFieldCount);
   assert.equal(
     drawing.round.clues.fields.find((field) => field.key === "length").source,
     "base",
@@ -451,6 +447,8 @@ test("scope-aware staged hints preserve an early answer score", async (t) => {
   assert.equal(secondHint.round.clues.scoreBand.maximum, 40);
   assert.match(secondFields.cost.value, /^\d+ 费$/u);
   assert.notEqual(secondFields.stats.value, "待揭示");
+  assert.equal(secondFields.race.source, "hint");
+  assert.notEqual(secondFields.race.value, "待揭示");
   assert.equal(secondFields.text.source, "hint");
   assert.notEqual(secondFields.text.value, "待揭示");
   assert.doesNotMatch(secondFields.text.value, /<[^>]+>/u);

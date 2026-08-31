@@ -122,6 +122,21 @@ const CARD_RARITY_LABELS = {
   COMMON: "普通",
   FREE: "基础",
 };
+const CARD_RACE_LABELS = {
+  ALL: "全部种族",
+  BEAST: "野兽",
+  DEMON: "恶魔",
+  DRAGON: "龙",
+  DRAENEI: "德莱尼",
+  ELEMENTAL: "元素",
+  MECHANICAL: "机械",
+  MURLOC: "鱼人",
+  NAGA: "纳迦",
+  PIRATE: "海盗",
+  QUILBOAR: "野猪人",
+  TOTEM: "图腾",
+  UNDEAD: "亡灵",
+};
 const wordBanks = new Map(WORD_BANK_DEFINITIONS.map((definition) => {
   const cards = cardCatalog.filter(definition.matches);
   const words = cards.map((card) => card.name);
@@ -305,6 +320,7 @@ app.get("/api/cards/search", (request, response) => {
   const result = searchCards(bank.cards, filters, limit, (page - 1) * limit);
   response.json({
     ...result,
+    results: result.results.map((card) => cardPreview(card.name)).filter(Boolean),
     limit,
     page,
     pages: Math.ceil(result.total / limit),
@@ -889,6 +905,17 @@ function formatCardText(card) {
   return plainText.replaceAll(card.name, maskWord(card.name));
 }
 
+function formatCardRace(card) {
+  const races = Array.isArray(card?.races)
+    ? card.races
+    : String(card?.race ?? "").split(/[\/,]/u);
+  const labels = races
+    .map((race) => String(race).trim())
+    .filter(Boolean)
+    .map((race) => CARD_RACE_LABELS[race] ?? race);
+  return labels.length > 0 ? labels.join(" / ") : "无种族";
+}
+
 function buildRoundClues(room, current, viewerId) {
   const card = cardByName.get(current?.word);
   if (!card) return null;
@@ -948,6 +975,14 @@ function buildRoundClues(room, current, viewerId) {
             "stats",
             attributeClue.label,
             stage >= 2 ? attributeClue.value : "",
+            stage >= 2 ? "hint" : "hidden",
+          )]
+        : []),
+      ...(card.type === "MINION"
+        ? [clueField(
+            "race",
+            "种族",
+            stage >= 2 ? formatCardRace(card) : "",
             stage >= 2 ? "hint" : "hidden",
           )]
         : []),
@@ -1034,6 +1069,10 @@ function cardPreview(name) {
     attack: Number.isFinite(card.attack) ? card.attack : null,
     health: Number.isFinite(card.health) ? card.health : null,
     armor: Number.isFinite(card.armor) ? card.armor : null,
+    cardClass: card.cardClass,
+    rarity: card.rarity,
+    race: formatCardRace(card),
+    text: formatCardText(card),
     type: card.type,
     imageUrl: card.imageUrl,
   };
@@ -1107,7 +1146,7 @@ function publicState(room, viewerId) {
               : null,
           clueCard:
             room.phase === "drawing" && !isDrawer
-              ? { imageUrl: cardPreview(selectedWord)?.imageUrl ?? "" }
+              ? { type: cardPreview(selectedWord)?.type ?? "MINION" }
               : null,
           answerCard:
             room.phase === "roundEnd" || room.phase === "gameOver"

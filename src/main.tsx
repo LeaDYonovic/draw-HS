@@ -5,7 +5,7 @@ import { MaskDebugPage } from "./MaskDebugPage";
 import "./styles.css";
 
 const pathname = window.location.pathname.replace(/\/+$/u, "") || "/";
-const RootPage = pathname === "/mask-debug" ? MaskDebugPage : App;
+const RootPage = pathname === "/mask-debug" || pathname === "/card-debug" ? MaskDebugPage : App;
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
