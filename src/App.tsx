@@ -985,14 +985,17 @@ function ClueCardReveal({
   stage: number;
 }) {
   const stickers = [
+    { className: "artwork art-northwest", label: "插画", revealAt: 1 },
+    { className: "artwork art-northeast", label: "插画", revealAt: 2 },
+    { className: "artwork art-southwest", label: "插画", revealAt: 2 },
+    { className: "artwork art-southeast", label: "插画", revealAt: 1 },
     { className: "cost", label: "费用", revealAt: 2 },
-    { className: "class", label: "职业", revealAt: 1 },
     { className: "attack", label: "攻击", revealAt: 2 },
     { className: "health", label: "生命 / 耐久", revealAt: 2 },
     { className: "name", label: "卡牌名称", revealAt: Number.POSITIVE_INFINITY },
     { className: "description", label: "卡牌描述", revealAt: 2 },
   ];
-  const stageText = ["插画已显现", "职业封印已揭开", "属性与描述已揭开"];
+  const stageText = ["卡面仍在封印", "部分插画已显现", "插画、属性与描述已揭开"];
 
   return (
     <aside className={`drawer-reference clue-card-reference stage-${stage}`} aria-label="逐步解密的提示卡牌">

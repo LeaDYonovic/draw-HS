@@ -1703,9 +1703,28 @@ textarea:focus {
 }
 
 .card-sticker.cost { top: 9%; left: 0; width: 34%; height: 19%; transform: rotate(-5deg); }
-.card-sticker.class { top: 9%; right: 0; width: 34%; height: 19%; transform: rotate(5deg); }
 .card-sticker.attack { bottom: 8%; left: 0; width: 34%; height: 20%; transform: rotate(4deg); }
 .card-sticker.health { right: 0; bottom: 8%; width: 34%; height: 20%; transform: rotate(-4deg); }
+.card-sticker.artwork {
+  z-index: 2;
+  min-width: 0;
+  min-height: 0;
+  border-color: rgba(56, 86, 82, 0.82);
+  border-radius: 8px 3px 7px 4px;
+  color: rgba(255, 239, 184, 0.78);
+  background:
+    radial-gradient(circle at 28% 30%, rgba(242, 195, 93, 0.28), transparent 22%),
+    repeating-linear-gradient(35deg, rgba(255, 255, 255, 0.035) 0 5px, transparent 5px 11px),
+    linear-gradient(145deg, #265d62, #153f49);
+  box-shadow: 0 4px 9px rgba(10, 24, 25, 0.48), inset 0 0 0 2px rgba(232, 197, 116, 0.12);
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+}
+.card-sticker.artwork::before { background: rgba(229, 194, 112, 0.52); }
+.card-sticker.art-northwest { top: 12%; left: 15%; width: 35%; height: 20%; transform: rotate(-1deg); }
+.card-sticker.art-northeast { top: 12%; right: 15%; width: 35%; height: 20%; transform: rotate(1deg); }
+.card-sticker.art-southwest { top: 32%; left: 15%; width: 35%; height: 19%; transform: rotate(1deg); }
+.card-sticker.art-southeast { top: 32%; right: 15%; width: 35%; height: 19%; transform: rotate(-1deg); }
 .card-sticker.name {
   top: 48%;
   left: 12%;
@@ -1729,8 +1748,11 @@ textarea:focus {
 .card-sticker.cost.opened,
 .card-sticker.attack.opened,
 .card-sticker.description.opened { transform: translate(-18px, -16px) rotate(-15deg) scale(0.82); }
-.card-sticker.class.opened,
 .card-sticker.health.opened { transform: translate(18px, -16px) rotate(15deg) scale(0.82); }
+.card-sticker.art-northwest.opened,
+.card-sticker.art-southwest.opened { transform: translate(-12px, -9px) rotate(-8deg) scale(0.86); }
+.card-sticker.art-northeast.opened,
+.card-sticker.art-southeast.opened { transform: translate(12px, -9px) rotate(8deg) scale(0.86); }
 
 .drawer-reference > strong {
   width: 100%;
