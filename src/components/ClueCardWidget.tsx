@@ -6,6 +6,7 @@ import type { CardPreview, ClueCardPreview, RoundClueField } from "../types";
 const CANVAS_WIDTH = 825;
 const CANVAS_HEIGHT = 1130;
 const ASSET_ROOT = "/hearthcards/assets";
+const BOTTOM_CORNER_OFFSET_Y = -36;
 
 const TYPE_TEMPLATES: Record<string, string> = {
   HERO: "herocard",
@@ -58,6 +59,7 @@ const DETAIL_LAYER_IDS = new Set([
   "tribePlaque",
   "tribePlaqueDual",
 ]);
+const BOTTOM_CORNER_LAYER_IDS = new Set(["attack", "attackIcon", "health", "healthIcon"]);
 
 interface CardTemplate {
   artMasks?: ArtMask | ArtMask[];
@@ -310,6 +312,7 @@ function drawBoundText(
   template: CardTemplate,
   bindTo: string,
   value: string,
+  offsetY = 0,
 ) {
   if (!value) return;
   const spec = template.texts?.find((item) => item.bindTo === bindTo && item.renderType === "rect");
@@ -318,7 +321,7 @@ function drawBoundText(
     context,
     value,
     spec.x + spec.width / 2,
-    spec.y + spec.height / 2,
+    spec.y + spec.height / 2 + offsetY,
     spec.width * 0.7,
     Math.min(spec.fontSize ?? 100, 150),
   );
@@ -338,8 +341,8 @@ function drawCardText(context: CanvasRenderingContext2D, template: CardTemplate,
   }
   if (stage < 2) return;
   drawBoundText(context, template, "Cost.Value", values.cost);
-  drawBoundText(context, template, "Attack", values.attack);
-  drawBoundText(context, template, "Health", values.health);
+  drawBoundText(context, template, "Attack", values.attack, BOTTOM_CORNER_OFFSET_Y);
+  drawBoundText(context, template, "Health", values.health, BOTTOM_CORNER_OFFSET_Y);
   drawDescription(context, template, values.text);
   if (values.race) drawBoundText(context, template, "Tribe", values.race.replaceAll(" / ", " "));
 }
@@ -373,7 +376,8 @@ async function renderCard(
   }));
   layers.forEach(({ layer }, index) => {
     const image = images[index];
-    if (image) context.drawImage(image, layer.x, layer.y, layer.width, layer.height);
+    const offsetY = BOTTOM_CORNER_LAYER_IDS.has(layer.id) ? BOTTOM_CORNER_OFFSET_Y : 0;
+    if (image) context.drawImage(image, layer.x, layer.y + offsetY, layer.width, layer.height);
   });
   drawCardText(context, template, values, stage);
 
