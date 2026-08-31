@@ -77,3 +77,26 @@ test("extracts smooth outlines and rich color painting from a rendered PNG card"
   );
   assert.deepEqual(legacyOutline, drawing.outline);
 });
+
+test("uses a higher-resolution color grid for AI drawing by default", () => {
+  const image = new PNG({ width: 256, height: 384 });
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      const index = (y * image.width + x) * 4;
+      image.data[index] = x;
+      image.data[index + 1] = y % 256;
+      image.data[index + 2] = (x + y) % 256;
+      image.data[index + 3] = 255;
+    }
+  }
+
+  const drawing = buildBotDrawingFromPng(
+    PNG.sync.write(image),
+    { type: "MINION" },
+  );
+  assert.equal(drawing.coloring.length, 5_200);
+  assert.ok(drawing.outline.length >= 40 && drawing.outline.length <= 2_300);
+  assert.equal(drawing.finishing.length, Math.min(700, drawing.outline.length));
+  assert.ok(drawing.segments.length < 15_000);
+  assert.ok(new Set(drawing.coloring.map((segment) => segment.color)).size > 400);
+});

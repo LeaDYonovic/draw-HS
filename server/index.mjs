@@ -1543,7 +1543,7 @@ function startDrawing(room, word) {
     `${room.players.get(room.current.drawerId)?.name} 开始作画！请从十个选项中提交答案。`,
   );
   if (room.players.get(room.current.drawerId)?.isBot) {
-    addSystemMessage(room, "AI 正在先画卡面椭圆和主体彩色轮廓，再逐步铺色与补充暗部。");
+    addSystemMessage(room, "AI 正在先画卡面椭圆和主体彩色轮廓，再用高分辨率颜色块逐步铺色与补充暗部。");
   }
   emitState(room);
   scheduleBotAnswers(room);

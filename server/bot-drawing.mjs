@@ -20,6 +20,14 @@ const CLASS_COLORS = {
   WARRIOR: "#a54b3f",
 };
 const INK = "#26383d";
+const AI_DRAWING_PRESET = {
+  colorBrushSize: 6,
+  colorCellSize: 2,
+  gridWidth: 320,
+  maxColoringSegments: 5_200,
+  maxFinishingSegments: 700,
+  maxOutlineSegments: 2_300,
+};
 
 function clamp(value, minimum = 0, maximum = 1) {
   return Math.max(minimum, Math.min(maximum, value));
@@ -201,18 +209,25 @@ export function buildBotDrawingFromPng(pngBuffer, card, options = {}) {
   const layout = getCardArtLayout(card?.type);
   const detail = options.detail ?? "detailed";
   const gridWidth = options.gridWidth ??
-    (detail === "detailed" ? 240 : detail === "simple" ? 112 : 176);
+    (detail === "detailed" ? AI_DRAWING_PRESET.gridWidth : detail === "simple" ? 112 : 176);
   const artwork = cropArtwork(image, layout, gridWidth);
   return buildAssistedDrawing(artwork, {
     canvasAspect: options.canvasAspect ?? 4 / 3,
     colorMode: "sampled",
     detail,
     mask: layout.mask,
-    colorBrushSize: options.colorBrushSize,
-    colorCellSize: options.colorCellSize,
-    maxColoringSegments: options.maxColoringSegments ?? options.maxShadingSegments,
-    maxFinishingSegments: options.maxFinishingSegments,
-    maxOutlineSegments: options.maxOutlineSegments ?? options.maxSegments,
+    colorBrushSize: options.colorBrushSize ?? AI_DRAWING_PRESET.colorBrushSize,
+    colorCellSize: options.colorCellSize ?? AI_DRAWING_PRESET.colorCellSize,
+    maxColoringSegments:
+      options.maxColoringSegments ??
+      options.maxShadingSegments ??
+      AI_DRAWING_PRESET.maxColoringSegments,
+    maxFinishingSegments:
+      options.maxFinishingSegments ?? AI_DRAWING_PRESET.maxFinishingSegments,
+    maxOutlineSegments:
+      options.maxOutlineSegments ??
+      options.maxSegments ??
+      AI_DRAWING_PRESET.maxOutlineSegments,
   });
 }
 

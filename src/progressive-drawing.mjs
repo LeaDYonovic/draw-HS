@@ -7,9 +7,9 @@ export function getProgressiveDrawingPlan(durationMs, segmentCounts = {}) {
   const outlineIntervalMs = Math.max(55, Math.min(160, duration * 0.0025));
   const coloringIntervalMs = Math.max(45, Math.min(100, duration * 0.0015));
   const finishingIntervalMs = coloringIntervalMs;
-  const outlineBatchSize = 12;
-  const coloringBatchSize = 16;
-  const finishingBatchSize = 10;
+  const outlineBatchSize = Number(segmentCounts.outline) > 1_600 ? 18 : 12;
+  const coloringBatchSize = Number(segmentCounts.coloring) > 2_600 ? 28 : 16;
+  const finishingBatchSize = Number(segmentCounts.finishing) > 520 ? 14 : 10;
   const outlineDurationMs = segmentDuration(
     segmentCounts.outline,
     outlineBatchSize,

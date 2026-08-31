@@ -37,3 +37,17 @@ test("accelerates a late assist without collapsing into an instant draw", () => 
   assert.ok(late.totalDurationMs < fullRound.totalDurationMs);
   assert.ok(late.totalDurationMs > 1_000);
 });
+
+test("batches high-resolution AI color blocks within the round", () => {
+  const plan = getProgressiveDrawingPlan(30_000, {
+    outline: 2_300,
+    coloring: 5_200,
+    finishing: 700,
+  });
+
+  assert.deepEqual(
+    [plan.outline.batchSize, plan.coloring.batchSize, plan.finishing.batchSize],
+    [18, 28, 14],
+  );
+  assert.ok(plan.totalDurationMs < 24_000);
+});
