@@ -1432,8 +1432,14 @@ textarea:focus {
 .masked-word { font-family: var(--font-ui); letter-spacing: 0.14em !important; }
 .status-label { color: #95b9b6; font-size: 0.67rem; letter-spacing: 0.1em; }
 
-.round-timer {
+.round-timer-actions {
   justify-self: end;
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+}
+
+.round-timer {
   min-width: 90px;
   display: flex;
   align-items: baseline;
@@ -1446,6 +1452,20 @@ textarea:focus {
 .round-timer strong { color: #fff0bd; font-size: 1.7rem; line-height: 1; }
 .round-timer small { font-size: 0.62rem; }
 .round-timer.urgent strong { color: #ef7856; animation: timer-beat 1s infinite; }
+
+.round-timer-actions > button {
+  padding: 5px 9px;
+  border: 1px solid rgba(231, 189, 95, 0.56);
+  border-radius: 6px;
+  color: #ffe7aa;
+  background: linear-gradient(180deg, rgba(174, 80, 43, 0.86), rgba(119, 48, 37, 0.9));
+  cursor: pointer;
+  font-size: 0.62rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.round-timer-actions > button:disabled { cursor: wait; opacity: 0.58; }
 
 @keyframes timer-beat { 50% { transform: scale(1.1); } }
 

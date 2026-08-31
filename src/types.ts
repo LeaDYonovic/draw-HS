@@ -131,7 +131,7 @@ export interface RoundState {
   answerSubmittedCorrectly: boolean;
   answerCooldownEndsAt: number;
   clues: RoundClueState | null;
-  resultReason: "timeout" | "drawerLeft" | null;
+  resultReason: "timeout" | "drawerLeft" | "manual" | "correct" | null;
 }
 
 export interface RoomState {
@@ -150,6 +150,7 @@ export interface RoomState {
   round: RoundState | null;
   messages: ChatMessage[];
   canStart: boolean;
+  canEndRound: boolean;
   canJoinNextRound: boolean;
   isHost: boolean;
   isDrawer: boolean;

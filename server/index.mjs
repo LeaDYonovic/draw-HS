@@ -27,7 +27,12 @@ import { getProgressiveDrawingPlan } from "../src/progressive-drawing.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 const CHOICE_OPTION_COUNT = 10;
-const ANSWER_SUBMIT_COOLDOWN_MS = 1_000;
+const answerSubmitCooldownOverrideMs = Number(
+  process.env.ANSWER_SUBMIT_COOLDOWN_OVERRIDE_MS,
+);
+const ANSWER_SUBMIT_COOLDOWN_MS = answerSubmitCooldownOverrideMs >= 50
+  ? answerSubmitCooldownOverrideMs
+  : 1_000;
 const TEST_BOT_NAME = "旅店老板 AI";
 const AI_CHOOSE_DELAY_MS = 700;
 const cardCatalogPath = path.join(
@@ -775,6 +780,13 @@ function activeHumanPlayers(room) {
   return activePlayers(room).filter((player) => !player.isBot);
 }
 
+function isSoloBotRoom(room) {
+  const players = seatedPlayers(room);
+  return players.length === 2 &&
+    players.filter((player) => player.isBot).length === 1 &&
+    players.filter((player) => !player.isBot).length === 1;
+}
+
 function addTestBot(room) {
   const occupiedNames = new Set(
     [...room.players.values()]
@@ -1142,6 +1154,11 @@ function publicState(room, viewerId) {
       room.phase === "lobby" &&
       activeHumanPlayers(room).length >= 1 &&
       selectedWordBank.choiceWords.length >= 3,
+    canEndRound:
+      room.phase === "drawing" &&
+      !viewer?.isBot &&
+      !isSpectator &&
+      isSoloBotRoom(room),
     canJoinNextRound:
       isSpectator &&
       !viewer?.joinNextRound &&
@@ -1289,6 +1306,12 @@ function beginTurn(room) {
 
 function scheduleBotAnswers(room) {
   if (!room.current) return;
+  if (
+    isSoloBotRoom(room) &&
+    !room.players.get(room.current.drawerId)?.isBot
+  ) {
+    return;
+  }
   const roundStartedAt = room.current.startedAt;
   const delayMs = Math.max(
     100,
@@ -1613,7 +1636,7 @@ function settleAnswers(room) {
 function finishTurn(room, reason) {
   if (room.phase !== "drawing" || !room.current) return;
   clearRoomTimer(room);
-  if (reason === "timeout") settleAnswers(room);
+  if (reason === "timeout" || reason === "correct") settleAnswers(room);
   room.phase = "roundEnd";
   room.current.resultReason = reason;
   room.current.endsAt = Date.now() + ROUND_BREAK_MS;
@@ -2162,7 +2185,31 @@ io.on("connection", (socket) => {
 
     const result = recordChoiceSubmission(room, player, index);
     respond(callback, result);
+    if (result.ok && result.correct && isSoloBotRoom(room)) {
+      finishTurn(room, "correct");
+      return;
+    }
     emitState(room);
+  });
+
+  socket.on("end_solo_round", (_payload, callback) => {
+    const context = getPlayerRoom(socket);
+    if (!context || context.room.phase !== "drawing" || !context.room.current) {
+      respond(callback, { ok: false, error: "现在不能结束本题" });
+      return;
+    }
+    if (context.player.isBot || context.player.isSpectator) {
+      respond(callback, { ok: false, error: "当前身份不能结束本题" });
+      return;
+    }
+    if (!isSoloBotRoom(context.room)) {
+      respond(callback, { ok: false, error: "只有单人 AI 测试时可以立即结束本题" });
+      return;
+    }
+
+    addSystemMessage(context.room, `${context.player.name} 提前结束了本题。`);
+    respond(callback, { ok: true });
+    finishTurn(context.room, "manual");
   });
 
   socket.on("restart_game", (_payload, callback) => {

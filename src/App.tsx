@@ -825,6 +825,7 @@ function GameRoom({
   onError: (message?: string) => void;
 }) {
   const round = room.round;
+  const [endingRound, setEndingRound] = useState(false);
   const drawer = room.players.find((player) => player.id === round?.drawerId);
   const self = room.players.find((player) => player.id === room.selfId);
   const overlay =
@@ -842,6 +843,20 @@ function GameRoom({
   const joinNextRound = async () => {
     const response = await emitWithAck("join_next_round");
     if (!response.ok) onError(response.error);
+  };
+
+  useEffect(() => {
+    setEndingRound(false);
+  }, [round?.key]);
+
+  const endSoloRound = async () => {
+    if (endingRound) return;
+    setEndingRound(true);
+    const response = await emitWithAck("end_solo_round");
+    if (!response.ok) {
+      setEndingRound(false);
+      onError(response.error);
+    }
   };
 
   return (
@@ -880,7 +895,14 @@ function GameRoom({
             </small>
           )}
         </div>
-        <RoundTimer endsAt={round?.endsAt ?? Date.now()} phase={room.phase} />
+        <div className="round-timer-actions">
+          <RoundTimer endsAt={round?.endsAt ?? Date.now()} phase={room.phase} />
+          {room.canEndRound && (
+            <button disabled={endingRound} onClick={endSoloRound} type="button">
+              {endingRound ? "正在结束" : "立即结束本题"}
+            </button>
+          )}
+        </div>
       </section>
 
       {room.phase === "drawing" && !room.isDrawer && round?.clues && (

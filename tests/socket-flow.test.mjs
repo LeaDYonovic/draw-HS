@@ -194,6 +194,7 @@ test("a wrong choice can be retried after the one-second submit cooldown", async
   assert.equal(drawing.round.answerOptions.length, 10);
   assert.equal(new Set(drawing.round.answerOptions).size, 10);
   assert.equal(drawing.round.answerOptionCards.length, 10);
+  assert.equal(drawing.canEndRound, false);
   assert.deepEqual(
     drawing.round.answerOptionCards.map((card) => card.name),
     drawing.round.answerOptions,
@@ -229,6 +230,9 @@ test("a wrong choice can be retried after the one-second submit cooldown", async
   );
   assert.equal(hostState.current.round.answerOptions.length, 0);
   assert.equal(hostState.current.round.answerOptionCards.length, 0);
+  const blockedEarlyEnd = await emitAck(guest, "end_solo_round");
+  assert.equal(blockedEarlyEnd.ok, false);
+  assert.match(blockedEarlyEnd.error, /单人 AI/u);
 
   const canvasEvent = new Promise((resolve) => guest.once("canvas_event", resolve));
   host.emit("canvas_event", {
@@ -498,7 +502,7 @@ test("room word banks combine same-group unions with cross-group intersections",
   assert.deepEqual(hostState.current.settings.wordBankIds, ["rare", "common", "minion"]);
 });
 
-test("a solo host can start with an AI player that chooses and answers automatically", async (t) => {
+test("a solo host can skip bot answers and immediately finish solo rounds", async (t) => {
   const port = await getFreePort();
   const url = `http://127.0.0.1:${port}`;
   let childLogs = "";
@@ -507,8 +511,9 @@ test("a solo host can start with an AI player that chooses and answers automatic
     env: {
       ...process.env,
       PORT: String(port),
-      ROUND_TIME_OVERRIDE_MS: "300",
+      ROUND_TIME_OVERRIDE_MS: "2000",
       ROUND_BREAK_OVERRIDE_MS: "100",
+      ANSWER_SUBMIT_COOLDOWN_OVERRIDE_MS: "50",
     },
     stdio: "pipe",
   });
@@ -545,12 +550,20 @@ test("a solo host can start with an AI player that chooses and answers automatic
   assert.equal(choosing.isDrawer, true);
 
   await emitAck(host, "choose_word", { word: choosing.round.options[0] });
-  const botAnswered = await hostState.waitFor(
-    (state) =>
-      state.phase === "drawing" &&
-      state.players.some((player) => player.isBot && player.hasAnswered),
+  const humanDrawing = await hostState.waitFor(
+    (state) => state.phase === "drawing" && state.isDrawer,
   );
-  assert.equal(botAnswered.players.find((player) => player.isBot).hasAnswered, true);
+  assert.equal(humanDrawing.canEndRound, true);
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  assert.equal(hostState.current.phase, "drawing");
+  assert.equal(hostState.current.players.find((player) => player.isBot).hasAnswered, false);
+
+  const endedEarly = await emitAck(host, "end_solo_round");
+  assert.equal(endedEarly.ok, true);
+  const manuallyEnded = await hostState.waitFor(
+    (state) => state.phase === "roundEnd" && state.round.resultReason === "manual",
+  );
+  assert.equal(manuallyEnded.round.resultReason, "manual");
 
   const aiDrawing = await hostState.waitFor(
     (state) =>
@@ -559,6 +572,7 @@ test("a solo host can start with an AI player that chooses and answers automatic
     3_000,
   );
   assert.equal(aiDrawing.isDrawer, false);
+  assert.equal(aiDrawing.canEndRound, true);
   assert.equal(aiDrawing.round.questionType, "choice");
   assert.equal(aiDrawing.round.answerOptionCards.length, 10);
   assert.ok(
@@ -577,6 +591,24 @@ test("a solo host can start with an AI player that chooses and answers automatic
     1_000,
   );
   assert.ok(aiCanvas.length >= 10);
+
+  const submittedAt = Date.now();
+  let correctSubmission = null;
+  for (let index = 0; index < aiDrawing.round.answerOptions.length; index += 1) {
+    const submission = await emitAck(host, "submit_answer", { index });
+    if (submission.correct) {
+      correctSubmission = submission;
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 55));
+  }
+  assert.ok(correctSubmission);
+  assert.ok(correctSubmission.score > 0);
+  const correctlyEnded = await hostState.waitFor(
+    (state) => state.phase === "roundEnd" && state.round.resultReason === "correct",
+  );
+  assert.equal(correctlyEnded.round.resultReason, "correct");
+  assert.ok(Date.now() - submittedAt < 1_200);
   const gameOver = await hostState.waitFor((state) => state.phase === "gameOver", 3_000);
   assert.equal(gameOver.players.find((player) => player.isBot).score, 0);
 });
