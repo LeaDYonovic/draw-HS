@@ -293,7 +293,8 @@ app.get("/api/cards/search", (request, response) => {
     filters.cost === null &&
     filters.attack === null &&
     filters.health === null &&
-    filters.armor === null
+    filters.armor === null &&
+    requestedWordBankIds.length === 0
   ) {
     response.json({ results: [], total: 0, limit: 40, page: 1, pages: 0 });
     return;

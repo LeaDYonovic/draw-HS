@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CanvasBoard } from "./components/CanvasBoard";
+import { CardImage } from "./components/CardImage";
+import { CardMaskWidget } from "./components/CardMaskWidget";
 import { emitWithAck, socket } from "./realtime";
 import { calculateScore } from "./score-rules.mjs";
 import type {
@@ -1145,33 +1147,9 @@ function ClueCardReveal({
   card: NonNullable<NonNullable<RoomState["round"]>["clueCard"]>;
   stage: number;
 }) {
-  const stickers = [
-    { className: "artwork art-cover", label: "插画持续封印", revealAt: Number.POSITIVE_INFINITY },
-    { className: "cost", label: "费用", revealAt: 1 },
-    { className: "attack", label: "攻击", revealAt: 2 },
-    { className: "health", label: "生命 / 耐久", revealAt: 2 },
-    { className: "name", label: "卡牌名称", revealAt: Number.POSITIVE_INFINITY },
-    { className: "description", label: "卡牌描述", revealAt: 2 },
-  ];
-
   return (
     <aside className={`drawer-reference clue-card-reference stage-${stage}`} aria-label="逐步解密的提示卡牌">
-      <div className="clue-card-stage">
-        <CardImage
-          card={{ imageUrl: card.imageUrl, name: "待解密" }}
-          className="drawer-reference-visual clue-card-image"
-          loading="eager"
-        />
-        {stickers.map((sticker) => (
-          <span
-            aria-hidden="true"
-            className={`card-sticker ${sticker.className} ${stage >= sticker.revealAt ? "opened" : ""}`}
-            key={sticker.className}
-          >
-            {sticker.label}
-          </span>
-        ))}
-      </div>
+      <CardMaskWidget imageUrl={card.imageUrl} stage={stage} />
     </aside>
   );
 }
@@ -1719,38 +1697,6 @@ function MiniBrand() {
     <div className="mini-brand">
       <div className="mini-gem" />
       <div><strong>炉边画谜</strong><span>HEARTH DRAW</span></div>
-    </div>
-  );
-}
-
-function CardImage({
-  card,
-  className = "",
-  loading = "lazy",
-}: {
-  card: Pick<CardPreview, "name" | "imageUrl">;
-  className?: string;
-  loading?: "eager" | "lazy";
-}) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => setFailed(false), [card.imageUrl]);
-
-  return (
-    <div className={`card-visual ${className}`}>
-      {!failed && card.imageUrl ? (
-        <img
-          alt={`${card.name}卡牌`}
-          loading={loading}
-          onError={() => setFailed(true)}
-          src={card.imageUrl}
-        />
-      ) : (
-        <div aria-label={`${card.name}卡牌图片暂不可用`} className="card-image-fallback" role="img">
-          <span>炉石</span>
-          <small>卡图暂不可用</small>
-        </div>
-      )}
     </div>
   );
 }

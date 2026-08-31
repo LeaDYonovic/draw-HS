@@ -381,6 +381,12 @@ test("legacy search settings still produce choices while card search remains ava
   assert.ok(armorData.results.length > 0);
   assert.ok(armorData.results.every((card) => card.armor === 7));
 
+  const minionBrowseResponse = await fetch(`${url}/api/cards/search?wordBanks=minion`);
+  const minionBrowseData = await minionBrowseResponse.json();
+  assert.equal(minionBrowseResponse.ok, true);
+  assert.ok(minionBrowseData.results.length > 0);
+  assert.ok(minionBrowseData.results.every((card) => card.type === "MINION"));
+
   const correctIndex = drawing.round.answerOptions.indexOf(answer);
   const submitted = await emitAck(guest, "submit_answer", { index: correctIndex });
   assert.equal(submitted.ok, true);
