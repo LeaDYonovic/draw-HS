@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
 import {
-  buildBotOutlineFromPng,
+  buildBotDrawingFromPng,
   buildBotTypeSketch,
 } from "./bot-drawing.mjs";
 import {
@@ -198,7 +198,7 @@ const cardImageDir = path.resolve(
   process.env.CARD_IMAGE_DIR || path.join(rootDir, "card-images"),
 );
 const pendingCardImages = new Map();
-const botOutlineCache = new Map();
+const botDrawingCache = new Map();
 const rateWindows = new Map();
 const imageFetchQueue = [];
 let activeImageFetches = 0;
@@ -1333,9 +1333,9 @@ function queueBotSegments(room, roundStartedAt, segments, options = {}) {
   }
 }
 
-async function loadBotOutline(card) {
+async function loadBotDrawing(card) {
   if (!card?.id) return [];
-  if (botOutlineCache.has(card.id)) return botOutlineCache.get(card.id);
+  if (botDrawingCache.has(card.id)) return botDrawingCache.get(card.id);
 
   const pending = withImageFetchSlot(async () => {
     const response = await fetch(
@@ -1350,17 +1350,20 @@ async function loadBotOutline(card) {
     if (image.length < 1_000 || image.length > 4_000_000) {
       throw new Error("AI 卡图文件大小异常");
     }
-    return buildBotOutlineFromPng(image, card, { maxSegments: 420 });
+    return buildBotDrawingFromPng(image, card, {
+      maxOutlineSegments: 360,
+      maxShadingSegments: 90,
+    });
   });
 
-  botOutlineCache.set(card.id, pending);
-  if (botOutlineCache.size > 64) {
-    botOutlineCache.delete(botOutlineCache.keys().next().value);
+  botDrawingCache.set(card.id, pending);
+  if (botDrawingCache.size > 64) {
+    botDrawingCache.delete(botDrawingCache.keys().next().value);
   }
   try {
     return await pending;
   } catch (error) {
-    botOutlineCache.delete(card.id);
+    botDrawingCache.delete(card.id);
     throw error;
   }
 }
@@ -1373,23 +1376,48 @@ function scheduleBotDrawing(room) {
 
   const roundStartedAt = current.startedAt;
   const durationMs = roundDurationMs(room);
-  queueBotSegments(room, roundStartedAt, buildBotTypeSketch(card), {
-    batchSize: 10,
-    startDelayMs: Math.min(80, durationMs * 0.08),
-    intervalMs: Math.max(25, Math.min(320, durationMs * 0.015)),
-  });
+  let drawingStarted = false;
+  let fallbackQueued = false;
+  const queueFallback = () => {
+    if (drawingStarted || fallbackQueued || !activeBotDrawingRound(room, roundStartedAt)) {
+      return;
+    }
+    fallbackQueued = true;
+    queueBotSegments(room, roundStartedAt, buildBotTypeSketch(card), {
+      batchSize: 10,
+      startDelayMs: 0,
+      intervalMs: Math.max(45, Math.min(180, durationMs * 0.003)),
+    });
+  };
+  const fallbackTimer = setTimeout(
+    queueFallback,
+    Math.max(30, Math.min(1_200, durationMs * 0.025)),
+  );
+  room.botDrawTimers.push(fallbackTimer);
 
-  void loadBotOutline(card)
-    .then((segments) => {
+  void loadBotDrawing(card)
+    .then(({ outline, shading }) => {
       if (!activeBotDrawingRound(room, roundStartedAt)) return;
-      queueBotSegments(room, roundStartedAt, segments, {
-        batchSize: 24,
-        startDelayMs: Math.max(50, Math.min(900, durationMs * 0.08)),
-        intervalMs: Math.max(35, Math.min(360, durationMs * 0.012)),
+      drawingStarted = true;
+      clearTimeout(fallbackTimer);
+      const outlineBatchSize = 6;
+      const outlineIntervalMs = Math.max(55, Math.min(160, durationMs * 0.0025));
+      queueBotSegments(room, roundStartedAt, outline, {
+        batchSize: outlineBatchSize,
+        startDelayMs: 40,
+        intervalMs: outlineIntervalMs,
+      });
+      const outlineDurationMs =
+        Math.ceil(outline.length / outlineBatchSize) * outlineIntervalMs;
+      queueBotSegments(room, roundStartedAt, shading, {
+        batchSize: 5,
+        startDelayMs: outlineDurationMs + Math.min(700, durationMs * 0.025),
+        intervalMs: Math.max(65, Math.min(190, durationMs * 0.003)),
       });
     })
     .catch((error) => {
       console.warn(`AI 轮廓生成失败 ${card.id}: ${error.message}`);
+      queueFallback();
     });
 }
 
@@ -1444,7 +1472,7 @@ function startDrawing(room, word) {
     `${room.players.get(room.current.drawerId)?.name} 开始作画！本轮为${room.current.questionType === "choice" ? "选择题" : "搜索题"}。`,
   );
   if (room.players.get(room.current.drawerId)?.isBot) {
-    addSystemMessage(room, "AI 正在参考卡牌插画作画，请根据画面和线索答题。");
+    addSystemMessage(room, "AI 正在先勾主体轮廓，再逐步补充色彩和暗部，请根据画面和线索答题。");
   }
   emitState(room);
   scheduleBotAnswers(room);

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import pngjs from "pngjs";
 import {
+  buildBotDrawingFromPng,
   buildBotOutlineFromPng,
   buildBotTypeSketch,
 } from "../server/bot-drawing.mjs";
@@ -34,7 +35,7 @@ test("builds a non-empty immediate sketch for every card type", () => {
   }
 });
 
-test("extracts an AI drawing outline from a rendered PNG card", () => {
+test("extracts continuous outlines and sand shading from a rendered PNG card", () => {
   const image = new PNG({ width: 256, height: 384 });
   for (let y = 0; y < image.height; y += 1) {
     for (let x = 0; x < image.width; x += 1) {
@@ -49,11 +50,26 @@ test("extracts an AI drawing outline from a rendered PNG card", () => {
     }
   }
 
-  const segments = buildBotOutlineFromPng(
+  const drawing = buildBotDrawingFromPng(
+    PNG.sync.write(image),
+    { type: "MINION" },
+    { maxOutlineSegments: 180, maxShadingSegments: 70 },
+  );
+  assertSegments(drawing.outline, 40);
+  assertSegments(drawing.shading, 30);
+  assert.ok(drawing.outline.length <= 180);
+  assert.ok(drawing.shading.length <= 70);
+  assert.deepEqual(drawing.segments, [...drawing.outline, ...drawing.shading]);
+  const joinedSegments = drawing.outline.slice(1).filter((segment, index) => {
+    const previous = drawing.outline[index];
+    return Math.hypot(previous.x1 - segment.x0, previous.y1 - segment.y0) < 1e-9;
+  });
+  assert.ok(joinedSegments.length > drawing.outline.length * 0.45);
+
+  const legacyOutline = buildBotOutlineFromPng(
     PNG.sync.write(image),
     { type: "MINION" },
     { maxSegments: 180 },
   );
-  assertSegments(segments, 80);
-  assert.ok(segments.length <= 180);
+  assert.deepEqual(legacyOutline, drawing.outline);
 });

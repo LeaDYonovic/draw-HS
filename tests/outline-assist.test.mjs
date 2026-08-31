@@ -35,7 +35,9 @@ test("extracts a bounded normalized outline from contrast data", () => {
     maxSegments: 320,
   });
 
-  assert.equal(result.segments.length, 320);
+  assert.ok(result.segments.length >= 50);
+  assert.ok(result.segments.length <= 320);
+  assert.ok(result.paths >= 10);
   assert.ok(result.contrast >= 150);
   assert.ok(result.threshold > 0);
   for (const segment of result.segments) {
@@ -48,6 +50,11 @@ test("extracts a bounded normalized outline from contrast data", () => {
       ),
     );
   }
+  const joinedSegments = result.segments.slice(1).filter((segment, index) => {
+    const previous = result.segments[index];
+    return Math.hypot(previous.x1 - segment.x0, previous.y1 - segment.y0) < 1e-9;
+  });
+  assert.ok(joinedSegments.length > result.segments.length * 0.5);
 });
 
 test("supports detail presets, rounded masks, and malformed buffer rejection", () => {
@@ -100,10 +107,10 @@ test("uses a calibrated artwork crop for every supported card type", () => {
 test("uses a dedicated CORS cache key for canvas image analysis", () => {
   assert.equal(
     getOutlineImageUrl("https://assets.example.com/card.webp?v=latest"),
-    "https://assets.example.com/card.webp?v=latest&outline=canvas-v2",
+    "https://assets.example.com/card.webp?v=latest&outline=canvas-v3",
   );
   assert.equal(
     getOutlineImageUrl("/api/cards/images/card.png#preview"),
-    "/api/cards/images/card.png?outline=canvas-v2#preview",
+    "/api/cards/images/card.png?outline=canvas-v3#preview",
   );
 });

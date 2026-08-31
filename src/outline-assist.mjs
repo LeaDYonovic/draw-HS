@@ -19,8 +19,8 @@ const DETAIL_PRESETS = {
     lowThresholdRatio: 0.52,
     minComponentSize: 8,
     maxSegments: 300,
-    spacingRadius: 2,
-    tangentHalfLength: 2.8,
+    minPathPoints: 6,
+    simplifyTolerance: 1.8,
     brushSize: 2.4,
   },
   standard: {
@@ -29,8 +29,8 @@ const DETAIL_PRESETS = {
     lowThresholdRatio: 0.46,
     minComponentSize: 5,
     maxSegments: 520,
-    spacingRadius: 1,
-    tangentHalfLength: 1.7,
+    minPathPoints: 4,
+    simplifyTolerance: 0.9,
     brushSize: 2,
   },
   detailed: {
@@ -39,12 +39,22 @@ const DETAIL_PRESETS = {
     lowThresholdRatio: 0.4,
     minComponentSize: 3,
     maxSegments: 820,
-    spacingRadius: 0,
-    tangentHalfLength: 1.15,
+    minPathPoints: 2,
+    simplifyTolerance: 0.55,
     brushSize: 1.7,
   },
 };
-const OUTLINE_IMAGE_VERSION = "canvas-v2";
+const OUTLINE_IMAGE_VERSION = "canvas-v3";
+const DRAWING_PALETTE = [
+  [38, 56, 61, "#26383d"],
+  [181, 47, 50, "#b52f32"],
+  [217, 120, 45, "#d9782d"],
+  [229, 184, 60, "#e5b83c"],
+  [79, 143, 70, "#4f8f46"],
+  [43, 115, 153, "#2b7399"],
+  [104, 72, 140, "#68488c"],
+  [140, 90, 60, "#8c5a3c"],
+];
 
 export function getCardArtLayout(cardType) {
   return {
@@ -253,40 +263,248 @@ function removeSmallComponents(accepted, width, height, minimumSize) {
   return filtered;
 }
 
-function selectSpacedEdges(
-  accepted,
-  strengths,
-  width,
-  height,
-  maximum,
-  spacingRadius,
-) {
-  const candidates = [];
-  for (let index = 0; index < accepted.length; index += 1) {
-    if (accepted[index]) candidates.push(index);
-  }
-  candidates.sort((first, second) => strengths[second] - strengths[first]);
-  if (spacingRadius <= 0) return candidates.slice(0, maximum);
+const NEIGHBOR_OFFSETS = [
+  [-1, -1], [0, -1], [1, -1],
+  [-1, 0], [1, 0],
+  [-1, 1], [0, 1], [1, 1],
+];
 
-  const blocked = new Uint8Array(accepted.length);
-  const selected = [];
-  for (const index of candidates) {
-    if (blocked[index]) continue;
-    selected.push(index);
-    if (selected.length >= maximum) break;
-    const x = index % width;
-    const y = Math.floor(index / width);
-    for (let offsetY = -spacingRadius; offsetY <= spacingRadius; offsetY += 1) {
-      for (let offsetX = -spacingRadius; offsetX <= spacingRadius; offsetX += 1) {
-        const nextX = x + offsetX;
-        const nextY = y + offsetY;
-        if (nextX >= 0 && nextX < width && nextY >= 0 && nextY < height) {
-          blocked[nextY * width + nextX] = 1;
-        }
-      }
+function edgeNeighbors(index, accepted, width, height, visited) {
+  const x = index % width;
+  const y = Math.floor(index / width);
+  const neighbors = [];
+  for (const [offsetX, offsetY] of NEIGHBOR_OFFSETS) {
+    const nextX = x + offsetX;
+    const nextY = y + offsetY;
+    if (nextX < 0 || nextX >= width || nextY < 0 || nextY >= height) continue;
+    const nextIndex = nextY * width + nextX;
+    if (accepted[nextIndex] && (!visited || !visited[nextIndex])) {
+      neighbors.push(nextIndex);
     }
   }
-  return selected;
+  return neighbors;
+}
+
+function pointLineDistance(index, start, end, width) {
+  const x = index % width;
+  const y = Math.floor(index / width);
+  const startX = start % width;
+  const startY = Math.floor(start / width);
+  const endX = end % width;
+  const endY = Math.floor(end / width);
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+  if (lengthSquared === 0) return Math.hypot(x - startX, y - startY);
+  const ratio = clamp(
+    ((x - startX) * deltaX + (y - startY) * deltaY) / lengthSquared,
+    0,
+    1,
+  );
+  return Math.hypot(x - (startX + deltaX * ratio), y - (startY + deltaY * ratio));
+}
+
+function simplifyPath(points, tolerance, width) {
+  if (points.length <= 2 || tolerance <= 0) return points;
+  const keep = new Uint8Array(points.length);
+  keep[0] = 1;
+  keep[points.length - 1] = 1;
+  const ranges = [[0, points.length - 1]];
+  while (ranges.length > 0) {
+    const [start, end] = ranges.pop();
+    let furthest = -1;
+    let furthestDistance = tolerance;
+    for (let index = start + 1; index < end; index += 1) {
+      const distance = pointLineDistance(
+        points[index],
+        points[start],
+        points[end],
+        width,
+      );
+      if (distance > furthestDistance) {
+        furthest = index;
+        furthestDistance = distance;
+      }
+    }
+    if (furthest >= 0) {
+      keep[furthest] = 1;
+      ranges.push([start, furthest], [furthest, end]);
+    }
+  }
+  return points.filter((_, index) => keep[index]);
+}
+
+function resamplePath(points, maximumSegments) {
+  if (points.length - 1 <= maximumSegments) return points;
+  const output = [];
+  for (let index = 0; index <= maximumSegments; index += 1) {
+    output.push(points[Math.round(index / maximumSegments * (points.length - 1))]);
+  }
+  return output.filter((point, index) => index === 0 || point !== output[index - 1]);
+}
+
+function traceEdgePaths(accepted, strengths, width, height, preset) {
+  const candidates = [];
+  let maximumStrength = 1;
+  for (let index = 0; index < accepted.length; index += 1) {
+    if (!accepted[index]) continue;
+    const degree = edgeNeighbors(index, accepted, width, height).length;
+    candidates.push({ index, endpoint: degree <= 1 });
+    maximumStrength = Math.max(maximumStrength, strengths[index]);
+  }
+  candidates.sort((first, second) =>
+    Number(second.endpoint) - Number(first.endpoint) ||
+    strengths[second.index] - strengths[first.index]
+  );
+
+  const visited = new Uint8Array(accepted.length);
+  const paths = [];
+  for (const candidate of candidates) {
+    if (visited[candidate.index]) continue;
+    const points = [];
+    let previous = -1;
+    let current = candidate.index;
+    while (current >= 0 && !visited[current]) {
+      visited[current] = 1;
+      points.push(current);
+      const neighbors = edgeNeighbors(current, accepted, width, height, visited);
+      if (neighbors.length === 0) break;
+      const currentX = current % width;
+      const currentY = Math.floor(current / width);
+      const previousX = previous >= 0 ? previous % width : currentX;
+      const previousY = previous >= 0 ? Math.floor(previous / width) : currentY;
+      const directionX = currentX - previousX;
+      const directionY = currentY - previousY;
+      neighbors.sort((first, second) => {
+        const score = (next) => {
+          const nextX = next % width;
+          const nextY = Math.floor(next / width);
+          const length = Math.max(1, Math.hypot(nextX - currentX, nextY - currentY));
+          const continuity = previous < 0
+            ? 0
+            : ((nextX - currentX) * directionX + (nextY - currentY) * directionY) /
+              Math.max(1, Math.hypot(directionX, directionY) * length);
+          return continuity * 2 + strengths[next] / maximumStrength;
+        };
+        return score(second) - score(first);
+      });
+      previous = current;
+      current = neighbors[0];
+    }
+
+    if (points.length >= 4) {
+      const firstX = points[0] % width;
+      const firstY = Math.floor(points[0] / width);
+      const lastX = points.at(-1) % width;
+      const lastY = Math.floor(points.at(-1) / width);
+      if (Math.max(Math.abs(firstX - lastX), Math.abs(firstY - lastY)) <= 1) {
+        points.push(points[0]);
+      }
+    }
+    if (points.length < preset.minPathPoints) continue;
+
+    const simplified = simplifyPath(points, preset.simplifyTolerance, width);
+    if (simplified.length < 2) continue;
+    let length = 0;
+    let totalStrength = 0;
+    let closestToCenter = 1;
+    for (let index = 0; index < simplified.length; index += 1) {
+      const point = simplified[index];
+      const x = point % width;
+      const y = Math.floor(point / width);
+      totalStrength += strengths[point];
+      closestToCenter = Math.min(
+        closestToCenter,
+        Math.hypot(x / width - 0.5, y / height - 0.5),
+      );
+      if (index > 0) {
+        const previousPoint = simplified[index - 1];
+        length += Math.hypot(
+          x - previousPoint % width,
+          y - Math.floor(previousPoint / width),
+        );
+      }
+    }
+    const averageStrength = totalStrength / simplified.length / maximumStrength;
+    const centrality = 1.2 - Math.min(0.45, closestToCenter * 0.7);
+    paths.push({
+      points: simplified,
+      score: length * centrality * (0.65 + averageStrength * 0.35),
+    });
+  }
+  paths.sort((first, second) => second.score - first.score);
+
+  let previousEnd = null;
+  for (const path of paths) {
+    if (previousEnd !== null) {
+      const distance = (point) => Math.hypot(
+        point % width - previousEnd % width,
+        Math.floor(point / width) - Math.floor(previousEnd / width),
+      );
+      if (distance(path.points.at(-1)) < distance(path.points[0])) {
+        path.points.reverse();
+      }
+    }
+    previousEnd = path.points.at(-1);
+  }
+  return paths;
+}
+
+function drawingBounds(width, height, canvasAspect) {
+  const targetHeight = 0.78;
+  const targetWidth = Math.min(0.78, targetHeight * (width / height) / canvasAspect);
+  return {
+    height: targetHeight,
+    left: (1 - targetWidth) / 2,
+    top: (1 - targetHeight) / 2,
+    width: targetWidth,
+  };
+}
+
+function mapDrawingPoint(index, width, height, bounds) {
+  return {
+    x: clamp(bounds.left + (index % width) / width * bounds.width, 0, 1),
+    y: clamp(
+      bounds.top + Math.floor(index / width) / height * bounds.height,
+      0,
+      1,
+    ),
+  };
+}
+
+function drawingColor(data, points, colorMode) {
+  if (colorMode !== "sampled") return "#26383d";
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+  let samples = 0;
+  const step = Math.max(1, Math.floor(points.length / 12));
+  for (let index = 0; index < points.length; index += step) {
+    const pixel = points[index] * 4;
+    red += data[pixel];
+    green += data[pixel + 1];
+    blue += data[pixel + 2];
+    samples += 1;
+  }
+  red /= samples;
+  green /= samples;
+  blue /= samples;
+  const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
+  const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+  if (saturation < 28 || luminance < 58) return "#26383d";
+  let nearest = DRAWING_PALETTE[0];
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (const color of DRAWING_PALETTE.slice(1)) {
+    const distance =
+      (red - color[0]) ** 2 +
+      (green - color[1]) ** 2 +
+      (blue - color[2]) ** 2;
+    if (distance < nearestDistance) {
+      nearest = color;
+      nearestDistance = distance;
+    }
+  }
+  return nearest[3];
 }
 
 function getDetailPreset(detail) {
@@ -355,47 +573,145 @@ export function buildOutlineSegments(pixelBuffer, options = {}) {
     height,
     preset.minComponentSize,
   );
-  const selected = selectSpacedEdges(
-    accepted,
-    suppressed,
-    width,
-    height,
-    Math.max(1, Number(options.maxSegments) || preset.maxSegments),
-    preset.spacingRadius,
-  );
-  selected.sort((first, second) => first - second);
-
   const canvasAspect = Math.max(0.5, Number(options.canvasAspect) || 4 / 3);
-  const artAspect = width / height;
-  const targetHeight = 0.78;
-  const targetWidth = Math.min(0.78, targetHeight * artAspect / canvasAspect);
-  const targetLeft = (1 - targetWidth) / 2;
-  const targetTop = (1 - targetHeight) / 2;
+  const maximum = Math.max(1, Number(options.maxSegments) || preset.maxSegments);
+  const paths = traceEdgePaths(accepted, suppressed, width, height, preset);
+  const bounds = drawingBounds(width, height, canvasAspect);
   const segments = [];
-  for (const index of selected) {
-    const x = index % width;
-    const y = Math.floor(index / width);
-    const gradientX = gradientsX[index];
-    const gradientY = gradientsY[index];
-    const magnitude = Math.max(1, Math.hypot(gradientX, gradientY));
-    const tangentX = -gradientY / magnitude * preset.tangentHalfLength;
-    const tangentY = gradientX / magnitude * preset.tangentHalfLength;
-    segments.push({
-      x0: clamp(targetLeft + (x - tangentX) / width * targetWidth, 0, 1),
-      y0: clamp(targetTop + (y - tangentY) / height * targetHeight, 0, 1),
-      x1: clamp(targetLeft + (x + tangentX) / width * targetWidth, 0, 1),
-      y1: clamp(targetTop + (y + tangentY) / height * targetHeight, 0, 1),
-      color: "#26383d",
-      size: preset.brushSize,
-      tool: "brush",
-    });
+  const maximumPerPath = Math.max(12, Math.floor(maximum * 0.24));
+  for (const path of paths) {
+    if (segments.length >= maximum) break;
+    const remaining = maximum - segments.length;
+    const points = resamplePath(
+      path.points,
+      Math.min(maximumPerPath, remaining),
+    );
+    const color = drawingColor(data, points, options.colorMode);
+    for (let index = 1; index < points.length && segments.length < maximum; index += 1) {
+      const start = mapDrawingPoint(points[index - 1], width, height, bounds);
+      const end = mapDrawingPoint(points[index], width, height, bounds);
+      segments.push({
+        x0: start.x,
+        y0: start.y,
+        x1: end.x,
+        y1: end.y,
+        color,
+        size: preset.brushSize,
+        tool: "brush",
+      });
+    }
   }
 
   return {
     segments,
     contrast: Math.round(lightPoint - darkPoint),
+    paths: paths.length,
     threshold: Math.round(highThreshold),
   };
+}
+
+export function buildSandShadingSegments(pixelBuffer, options = {}) {
+  const { data, width, height } = pixelBuffer;
+  if (!data || width < 8 || height < 8 || data.length < width * height * 4) {
+    throw new Error("插画像素数据无效");
+  }
+  const luminance = new Float32Array(width * height);
+  const visible = [];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      const pixel = index * 4;
+      luminance[index] =
+        data[pixel] * 0.2126 +
+        data[pixel + 1] * 0.7152 +
+        data[pixel + 2] * 0.0722;
+      if (data[pixel + 3] > 32 && insideArtMask(x, y, width, height, options.mask)) {
+        visible.push(luminance[index]);
+      }
+    }
+  }
+  const darkPoint = percentile(visible, 0.08);
+  const lightPoint = percentile(visible, 0.92);
+  const range = Math.max(24, lightPoint - darkPoint);
+  const rowStep = Math.max(4, Number(options.rowStep) || 6);
+  const runs = [];
+  for (let y = Math.floor(rowStep / 2); y < height; y += rowStep) {
+    let start = -1;
+    let darkness = 0;
+    const closeRun = (end) => {
+      if (start < 0 || end - start < 5) {
+        start = -1;
+        darkness = 0;
+        return;
+      }
+      const averageDarkness = darkness / (end - start);
+      const centerX = (start + end) / 2 / width;
+      const centerY = y / height;
+      const centrality = 1.15 - Math.min(0.35, Math.hypot(centerX - 0.5, centerY - 0.5) * 0.5);
+      runs.push({
+        darkness: averageDarkness,
+        end,
+        score: (end - start) * averageDarkness * centrality,
+        start,
+        y,
+      });
+      start = -1;
+      darkness = 0;
+    };
+    for (let x = 0; x <= width; x += 1) {
+      const index = y * width + Math.min(x, width - 1);
+      const normalized = x < width
+        ? clamp((luminance[index] - darkPoint) / range, 0, 1)
+        : 1;
+      const darkEnough =
+        x < width &&
+        normalized < 0.38 &&
+        insideArtMask(x, y, width, height, options.mask);
+      if (darkEnough) {
+        if (start < 0) start = x;
+        darkness += 1 - normalized;
+      } else {
+        closeRun(x);
+      }
+    }
+  }
+  runs.sort((first, second) => second.score - first.score);
+
+  const maximum = Math.max(1, Number(options.maxSegments) || 90);
+  const bounds = drawingBounds(
+    width,
+    height,
+    Math.max(0.5, Number(options.canvasAspect) || 4 / 3),
+  );
+  const segments = [];
+  for (const run of runs) {
+    if (segments.length >= maximum) break;
+    const step = Math.max(3, Math.ceil((run.end - run.start) / 12));
+    const points = [];
+    for (let x = run.start; x <= run.end; x += step) {
+      const wave = Math.sin((x + run.y * 1.7) * 0.55) * (0.45 + run.darkness);
+      const pointY = clamp(Math.round(run.y + wave), 0, height - 1);
+      points.push(pointY * width + Math.min(run.end - 1, x));
+    }
+    if (points.at(-1) % width !== run.end - 1) {
+      points.push(run.y * width + run.end - 1);
+    }
+    const color = drawingColor(data, points, options.colorMode);
+    for (let index = 1; index < points.length && segments.length < maximum; index += 1) {
+      const start = mapDrawingPoint(points[index - 1], width, height, bounds);
+      const end = mapDrawingPoint(points[index], width, height, bounds);
+      segments.push({
+        x0: start.x,
+        y0: start.y,
+        x1: end.x,
+        y1: end.y,
+        color,
+        size: 1.35,
+        tool: "brush",
+      });
+    }
+  }
+  return segments;
 }
 
 export async function extractCardOutline(imageUrl, options = {}) {

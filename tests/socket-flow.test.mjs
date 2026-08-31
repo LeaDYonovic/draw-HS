@@ -516,7 +516,7 @@ test("a solo host can start with an AI player that chooses and answers automatic
   assert.equal(aiDrawing.round.answerOptionCards.length, 10);
   assert.ok(
     aiDrawing.messages.some((message) =>
-      message.text.includes("AI 正在参考卡牌插画作画"),
+      message.text.includes("AI 正在先勾主体轮廓"),
     ),
   );
   const aiStroke = await hostCanvasEvent.waitFor(

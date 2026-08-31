@@ -1,6 +1,7 @@
 import pngjs from "pngjs";
 import {
   buildOutlineSegments,
+  buildSandShadingSegments,
   getCardArtLayout,
 } from "../src/outline-assist.mjs";
 
@@ -182,7 +183,7 @@ function cropArtwork(image, layout, gridWidth = 104) {
   return { data, width: gridWidth, height: gridHeight };
 }
 
-export function buildBotOutlineFromPng(pngBuffer, card, options = {}) {
+export function buildBotDrawingFromPng(pngBuffer, card, options = {}) {
   const image = PNG.sync.read(Buffer.from(pngBuffer));
   if (
     image.width < 32 ||
@@ -193,10 +194,25 @@ export function buildBotOutlineFromPng(pngBuffer, card, options = {}) {
     throw new Error("AI 卡图尺寸异常");
   }
   const layout = getCardArtLayout(card?.type);
-  return buildOutlineSegments(cropArtwork(image, layout), {
+  const artwork = cropArtwork(image, layout, options.gridWidth ?? 144);
+  const sharedOptions = {
     canvasAspect: options.canvasAspect ?? 4 / 3,
-    detail: options.detail ?? "standard",
+    colorMode: "sampled",
     mask: layout.mask,
-    maxSegments: options.maxSegments ?? 420,
+  };
+  const outline = buildOutlineSegments(artwork, {
+    ...sharedOptions,
+    detail: options.detail ?? "standard",
+    maxSegments: options.maxOutlineSegments ?? options.maxSegments ?? 360,
   }).segments;
+  const shading = buildSandShadingSegments(artwork, {
+    ...sharedOptions,
+    maxSegments: options.maxShadingSegments ?? 90,
+    rowStep: options.shadingRowStep ?? 6,
+  });
+  return { outline, shading, segments: [...outline, ...shading] };
+}
+
+export function buildBotOutlineFromPng(pngBuffer, card, options = {}) {
+  return buildBotDrawingFromPng(pngBuffer, card, options).outline;
 }
