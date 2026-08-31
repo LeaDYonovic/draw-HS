@@ -1122,7 +1122,7 @@ function GameRoom({
                   loading="eager"
                 />
                 <strong>{round.answerCard.name}</strong>
-                <p>贴纸已全部移除，可对照完整卡面与本轮画作。</p>
+                <p>完整卡面已经揭晓，可对照本轮画作查看答案。</p>
               </aside>
             )}
             <CanvasBoard
@@ -1186,10 +1186,10 @@ function RoundCluePanel({
     Math.max(0, round.endsAt - now),
     Math.max(1, round.durationMs),
   );
-  const stageLabels = ["卡面封印中", "费用已揭示", "属性与描述已揭示"];
+  const stageLabels = ["卡身建立中", "身份部件已装配", "卡牌信息已装配"];
   const stageMessages = [
-    "剩余 60% 时间时移除第一张贴纸",
-    "剩余 30% 时间时继续移除贴纸",
+    "剩余 60% 时间时装配职业与稀有度部件",
+    "剩余 30% 时间时装配费用、属性与描述",
     "插画与卡名将在本轮结算时揭开",
   ];
 
