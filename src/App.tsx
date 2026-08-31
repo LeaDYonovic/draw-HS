@@ -1,11 +1,9 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CanvasBoard } from "./components/CanvasBoard";
 import { emitWithAck, socket } from "./realtime";
 import { calculateScore } from "./score-rules.mjs";
 import type {
   CardPreview,
-  CardSearchResponse,
-  CardSearchResult,
   ChatMessage,
   GameSettings,
   LobbyState,
@@ -18,7 +16,7 @@ const SESSION_KEY = "hearth-draw-session";
 const NAME_KEY = "hearth-draw-name";
 const PAGE_SCALE_KEY = "hearth-draw-page-scale";
 const PAGE_SCALE_STEPS = [80, 90, 100, 110, 120] as const;
-const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家通过选择或搜索卡牌作答。";
+const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家从十个候选答案中选择并提交。";
 const CARD_TYPE_LABELS: Record<string, string> = {
   MINION: "随从",
   SPELL: "法术",
@@ -269,11 +267,11 @@ function Home({
           </div>
         </div>
         <p className="hero-description">
-          创建一桌，把房间号发给朋友。轮流抽取炉石卡牌名作画，通过选择题或卡牌检索锁定答案。
+          创建一桌，把房间号发给朋友。轮流抽取炉石卡牌名作画，从十张候选卡牌中提交答案。
         </p>
         <div className="feature-strip">
           <span>在线玩家大厅</span>
-          <span>选择题 + 搜索题</span>
+          <span>十选一 + 搜索辅助</span>
           <span>大厅与房间聊天</span>
         </div>
       </section>
@@ -699,7 +697,11 @@ function RoomLobby({
           {room.isHost ? (
             <div className="start-game-area room-lobby-start">
               <button className="primary-button large start-button" disabled={!room.canStart} onClick={startGame} type="button">
-                {room.canStart ? "开始对局" : "等待玩家加入"}
+                {room.canStart
+                  ? "开始对局"
+                  : supportsChoice
+                    ? "等待玩家加入"
+                    : "当前词库题目不足"}
               </button>
               {humanPlayers.length === 1 && (
                 <small>单人测试模式：开局后自动添加“旅店老板 AI”</small>
@@ -764,17 +766,11 @@ function RoomLobby({
 
           <section className="settings-panel">
             <div className="setting-item">
-              <label htmlFor="answer-mode">答题模式</label>
-              <select
-                disabled={!room.isHost}
-                id="answer-mode"
-                onChange={(event) => updateSetting({ answerMode: event.target.value as GameSettings["answerMode"] })}
-                value={room.settings.answerMode}
-              >
-                <option disabled={!supportsChoice} value="mixed">混合随机</option>
-                <option disabled={!supportsChoice} value="choice">仅选择题</option>
-                <option value="search">仅搜索题</option>
-              </select>
+              <label>答题方式</label>
+              <div className="fixed-setting">
+                <strong>十选一</strong>
+                <small>可用搜索工具筛选</small>
+              </div>
             </div>
             <div className="setting-item">
               <label htmlFor="rounds">每人作画</label>
@@ -880,7 +876,7 @@ function GameRoom({
             <small>
               {room.isSpectator
                 ? "围观中 · 当前不能答题"
-                : `${round?.questionType === "search" ? "搜索题" : "选择题"} · 结束前可修改答案`}
+                : "选择题 · 选中后提交，答错可继续"}
             </small>
           )}
         </div>
@@ -1096,64 +1092,6 @@ function RoundCluePanel({
   );
 }
 
-function ChoiceAnswerPanel({
-  round,
-  onError,
-}: {
-  round: NonNullable<RoomState["round"]>;
-  onError: (message?: string) => void;
-}) {
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(
-    round.selectedAnswerIndex,
-  );
-
-  useEffect(() => {
-    setSelectedIndex(round.selectedAnswerIndex);
-  }, [round.key, round.selectedAnswerIndex]);
-
-  const selectAnswer = async (index: number) => {
-    setSelectedIndex(index);
-    const response = await emitWithAck("select_answer", { index });
-    if (!response.ok) {
-      setSelectedIndex(round.selectedAnswerIndex);
-      onError(response.error);
-    }
-  };
-
-  return (
-    <aside className="answer-panel">
-      <div className="answer-heading">
-        <div><span className="live-dot" />选择答案</div>
-        <small>共 10 项，字数相同，只有 1 项正确</small>
-      </div>
-      <div className="answer-grid">
-        {round.answerOptionCards.map((card, index) => (
-          <button
-            aria-pressed={selectedIndex === index}
-            className={selectedIndex === index ? "selected" : ""}
-            key={`${index}-${card.id}`}
-            onClick={() => selectAnswer(index)}
-            type="button"
-          >
-            <span>{String(index + 1).padStart(2, "0")}</span>
-            <CardImage card={card} className="answer-option-visual" loading="eager" />
-            <strong>{card.name}</strong>
-          </button>
-        ))}
-      </div>
-      <div className="answer-selection">
-        <span>{selectedIndex === null ? "尚未作答" : "当前选择"}</span>
-        <strong>
-          {selectedIndex === null
-            ? "请选择一个编号"
-            : `第 ${String(selectedIndex + 1).padStart(2, "0")} 项`}
-        </strong>
-        <small>倒计时结束前可以随时修改</small>
-      </div>
-    </aside>
-  );
-}
-
 interface SearchFilters {
   name: string;
   wordLength: string;
@@ -1172,7 +1110,7 @@ const EMPTY_SEARCH_FILTERS: SearchFilters = {
   armor: "",
 };
 
-function formatCardSearchSummary(card: CardSearchResult) {
+function formatCardSearchSummary(card: CardPreview) {
   const details = [`字数 ${card.wordLength}`, `费用 ${card.cost ?? "-"}`];
   if (card.type === "MINION") {
     details.push(`攻击 ${card.attack ?? "-"}`, `生命 ${card.health ?? "-"}`);
@@ -1184,171 +1122,225 @@ function formatCardSearchSummary(card: CardSearchResult) {
   return details.join(" · ");
 }
 
-function SearchAnswerPanel({
+function matchesChoiceSearch(card: CardPreview, filters: SearchFilters) {
+  const exactNumber = (filter: string, value: number | null) =>
+    !filter.trim() || value === Number(filter);
+  return (
+    (!filters.name.trim() || card.name.toLocaleLowerCase().includes(
+      filters.name.trim().toLocaleLowerCase(),
+    )) &&
+    exactNumber(filters.wordLength, card.wordLength) &&
+    exactNumber(filters.cost, card.cost) &&
+    exactNumber(filters.attack, card.attack) &&
+    exactNumber(filters.health, card.health) &&
+    exactNumber(filters.armor, card.armor)
+  );
+}
+
+function ChoiceAnswerPanel({
   round,
-  wordBankIds,
   onError,
 }: {
   round: NonNullable<RoomState["round"]>;
-  wordBankIds: string[];
   onError: (message?: string) => void;
 }) {
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_SEARCH_FILTERS);
-  const [submittedFilters, setSubmittedFilters] = useState<SearchFilters | null>(null);
-  const [results, setResults] = useState<CardSearchResult[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [selectedName, setSelectedName] = useState(round.selectedAnswerName);
-  const reportSearchError = useEffectEvent((message: string) => onError(message));
-  const wordBankKey = wordBankIds.join(",");
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(
+    round.answerSubmittedCorrectly ? round.selectedAnswerIndex : null,
+  );
+  const [incorrectIndexes, setIncorrectIndexes] = useState(
+    () => new Set(round.incorrectAnswerIndexes),
+  );
+  const [submittedCorrectly, setSubmittedCorrectly] = useState(
+    round.answerSubmittedCorrectly,
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [cooldownEndsAt, setCooldownEndsAt] = useState(round.answerCooldownEndsAt);
+  const [clock, setClock] = useState(Date.now());
 
   useEffect(() => {
-    setSelectedName(round.selectedAnswerName);
-  }, [round.key, round.selectedAnswerName]);
+    setFilters(EMPTY_SEARCH_FILTERS);
+    setSelectedIndex(round.answerSubmittedCorrectly ? round.selectedAnswerIndex : null);
+    setIncorrectIndexes(new Set(round.incorrectAnswerIndexes));
+    setSubmittedCorrectly(round.answerSubmittedCorrectly);
+    setSubmitting(false);
+    setFeedback(round.answerSubmittedCorrectly ? "已经答对，本轮得分已锁定" : "");
+    setCooldownEndsAt(round.answerCooldownEndsAt);
+    setClock(Date.now());
+  }, [round.key]);
 
   useEffect(() => {
-    if (!submittedFilters) return;
-    const controller = new AbortController();
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(submittedFilters)) {
-      if (value.trim()) params.set(key, value.trim());
+    setIncorrectIndexes(new Set(round.incorrectAnswerIndexes));
+    setSubmittedCorrectly(round.answerSubmittedCorrectly);
+    setCooldownEndsAt((current) => Math.max(current, round.answerCooldownEndsAt));
+    if (round.answerSubmittedCorrectly) {
+      setSelectedIndex(round.selectedAnswerIndex);
+      setFeedback("已经答对，本轮得分已锁定");
     }
-    params.set("page", String(page));
-    params.set("wordBanks", wordBankKey || "all");
+  }, [
+    round.answerCooldownEndsAt,
+    round.answerSubmittedCorrectly,
+    round.incorrectAnswerIndexes,
+    round.selectedAnswerIndex,
+  ]);
 
-    setLoading(true);
-    fetch(`/api/cards/search?${params}`, { signal: controller.signal })
-      .then(async (response) => {
-        const data = await response.json() as CardSearchResponse;
-        if (!response.ok) throw new Error(data.error || "检索失败");
-        return data;
-      })
-      .then((data) => {
-        setResults(data.results);
-        setTotal(data.total);
-        setPages(data.pages);
-      })
-      .catch((error: Error) => {
-        if (error.name !== "AbortError") reportSearchError(error.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [page, submittedFilters, wordBankKey]);
+  const cooldownRemaining = Math.max(0, cooldownEndsAt - clock);
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 100);
+    return () => window.clearInterval(timer);
+  }, [cooldownRemaining > 0]);
 
   const updateFilter = (field: keyof SearchFilters, value: string) => {
     setFilters((current) => ({ ...current, [field]: value }));
   };
 
-  const search = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!Object.values(filters).some((value) => value.trim())) {
-      onError("请至少填写一个检索条件");
+  const submitAnswer = async () => {
+    if (selectedIndex === null || submittedCorrectly || cooldownRemaining > 0) return;
+    setSubmitting(true);
+    setFeedback("");
+    setCooldownEndsAt(Date.now() + 1_000);
+    setClock(Date.now());
+    const response = await emitWithAck("submit_answer", { index: selectedIndex });
+    setSubmitting(false);
+    if (!response.ok) {
+      if (response.retryAfterMs) {
+        setCooldownEndsAt(Date.now() + response.retryAfterMs);
+        setClock(Date.now());
+        setFeedback(`提交冷却中，还需 ${(response.retryAfterMs / 1_000).toFixed(1)} 秒`);
+      } else {
+        onError(response.error);
+      }
       return;
     }
-    setPage(1);
-    setSubmittedFilters({ ...filters });
+
+    setCooldownEndsAt(Date.now() + (response.retryAfterMs ?? 1_000));
+    setClock(Date.now());
+    if (response.correct) {
+      setSubmittedCorrectly(true);
+      setFeedback(`回答正确，获得 ${response.score ?? 0} 分`);
+      return;
+    }
+    setIncorrectIndexes((current) => new Set([...current, selectedIndex]));
+    setFeedback("回答错误，请选择其他答案后再次提交");
+    setSelectedIndex(null);
   };
 
-  const selectAnswer = async (name: string) => {
-    setSelectedName(name);
-    const response = await emitWithAck("select_search_answer", { name });
-    if (!response.ok) {
-      setSelectedName(round.selectedAnswerName);
-      onError(response.error);
-    }
-  };
+  const activeFilterCount = Object.values(filters).filter((value) => value.trim()).length;
+  const visibleOptions = round.answerOptionCards
+    .map((card, index) => ({ card, index }))
+    .filter(({ card }) => matchesChoiceSearch(card, filters));
 
   return (
-    <aside className="answer-panel search-answer-panel">
+    <aside className="answer-panel choice-answer-panel">
       <div className="answer-heading">
-        <div><span className="live-dot" />检索答案</div>
-        <small>组合条件查找卡牌</small>
+        <div><span className="live-dot" />选择并提交答案</div>
+        <small>答错可继续，每次提交冷却 1 秒</small>
       </div>
-      <form className="card-search-form" onSubmit={search}>
-        <label className="card-name-filter">
-          <span>卡牌名称</span>
-          <input
-            autoComplete="off"
-            onChange={(event) => updateFilter("name", event.target.value)}
-            placeholder="输入部分名称"
-            value={filters.name}
-          />
-        </label>
-        <div className="stat-filter-row">
-          {([
-            ["wordLength", "字数"],
-            ["cost", "费用"],
-            ["attack", "攻击"],
-            ["health", "生命/耐久"],
-            ["armor", "护甲"],
-          ] as const).map(([field, label]) => (
-            <label key={field}>
-              <span>{label}</span>
-              <input
-                inputMode="numeric"
-                max={field === "wordLength" ? "40" : "99"}
-                min={field === "wordLength" ? "1" : "0"}
-                onChange={(event) => updateFilter(field, event.target.value)}
-                placeholder="不限"
-                type="number"
-                value={filters[field]}
-              />
-            </label>
-          ))}
-          <button type="submit">检索</button>
-        </div>
-      </form>
-      <div className="search-results">
-        {loading ? (
-          <div className="search-empty">正在翻阅卡牌档案...</div>
-        ) : submittedFilters && results.length === 0 ? (
-          <div className="search-empty">没有找到符合条件的卡牌</div>
-        ) : !submittedFilters ? (
-          <div className="search-empty">输入名称、字数或属性开始检索</div>
-        ) : (
-          <>
-            <div className="search-result-count">
-              找到 {total} 张{total > results.length ? `，显示前 ${results.length} 张` : ""}
-            </div>
-            {results.map((card) => (
-              <div className={`search-result ${selectedName === card.name ? "selected" : ""}`} key={card.name}>
-                <CardImage card={card} className="search-card-visual" />
-                <div>
-                  <strong>{card.name}</strong>
-                  <span>{formatCardSearchSummary(card)}</span>
-                </div>
-                <button
-                  aria-pressed={selectedName === card.name}
-                  onClick={() => selectAnswer(card.name)}
-                  type="button"
-                >
-                  {selectedName === card.name ? "已选择" : "选为答案"}
-                </button>
-              </div>
+      <details className="choice-search-tool">
+        <summary>
+          <span>搜索工具</span>
+          <small>
+            {activeFilterCount > 0
+              ? `${activeFilterCount} 个条件 · 找到 ${visibleOptions.length} 项`
+              : "按名称与属性筛选十个选项"}
+          </small>
+        </summary>
+        <div className="choice-search-fields">
+          <label className="card-name-filter">
+            <span>卡牌名称</span>
+            <input
+              autoComplete="off"
+              onChange={(event) => updateFilter("name", event.target.value)}
+              placeholder="输入部分名称"
+              value={filters.name}
+            />
+          </label>
+          <div className="stat-filter-row">
+            {([
+              ["wordLength", "字数"],
+              ["cost", "费用"],
+              ["attack", "攻击"],
+              ["health", "生命/耐久"],
+              ["armor", "护甲"],
+            ] as const).map(([field, label]) => (
+              <label key={field}>
+                <span>{label}</span>
+                <input
+                  inputMode="numeric"
+                  max={field === "wordLength" ? "40" : "99"}
+                  min={field === "wordLength" ? "1" : "0"}
+                  onChange={(event) => updateFilter(field, event.target.value)}
+                  placeholder="不限"
+                  type="number"
+                  value={filters[field]}
+                />
+              </label>
             ))}
-            {pages > 1 && (
-              <div className="search-pagination" aria-label="搜索结果分页">
-                <button disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)} type="button">
-                  上一页
-                </button>
-                <span>第 {page} / {pages} 页</span>
-                <button disabled={page >= pages || loading} onClick={() => setPage((value) => value + 1)} type="button">
-                  下一页
-                </button>
+            <button onClick={() => setFilters(EMPTY_SEARCH_FILTERS)} type="button">
+              重置
+            </button>
+          </div>
+        </div>
+      </details>
+      <div className="answer-grid">
+        {visibleOptions.length === 0 ? (
+          <div className="answer-filter-empty">
+            <strong>没有符合条件的选项</strong>
+            <button onClick={() => setFilters(EMPTY_SEARCH_FILTERS)} type="button">清除筛选</button>
+          </div>
+        ) : visibleOptions.map(({ card, index }) => {
+          const incorrect = incorrectIndexes.has(index);
+          return (
+            <button
+              aria-pressed={selectedIndex === index}
+              className={`${selectedIndex === index ? "selected" : ""} ${incorrect ? "incorrect" : ""}`}
+              disabled={incorrect || submittedCorrectly}
+              key={`${index}-${card.id}`}
+              onClick={() => {
+                setSelectedIndex(index);
+                setFeedback("");
+              }}
+              type="button"
+            >
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <CardImage card={card} className="answer-option-visual" loading="eager" />
+              <div className="answer-option-copy">
+                <strong>{card.name}</strong>
+                <small>{formatCardSearchSummary(card)}</small>
               </div>
-            )}
-          </>
-        )}
+            </button>
+          );
+        })}
       </div>
-      <div className="answer-selection search-selection">
-        <span>{selectedName ? "当前答案" : "尚未作答"}</span>
-        <strong>{selectedName || "请从检索结果中选择"}</strong>
-        <small>倒计时结束前可以重新检索并修改</small>
+      <div className={`answer-selection ${submittedCorrectly ? "correct" : feedback ? "has-feedback" : ""}`} aria-live="polite">
+        <span>{submittedCorrectly ? "回答正确" : selectedIndex === null ? "尚未选择" : "准备提交"}</span>
+        <strong>
+          {selectedIndex === null
+            ? "请选择一个编号"
+            : `第 ${String(selectedIndex + 1).padStart(2, "0")} 项 · ${round.answerOptionCards[selectedIndex]?.name}`}
+        </strong>
+        <small>{feedback || "点选不会直接作答，需要点击提交答案"}</small>
+        <button
+          className="submit-answer-button"
+          disabled={
+            selectedIndex === null ||
+            submitting ||
+            submittedCorrectly ||
+            cooldownRemaining > 0
+          }
+          onClick={submitAnswer}
+          type="button"
+        >
+          {submittedCorrectly
+            ? "已答对"
+            : submitting
+              ? "提交中"
+              : cooldownRemaining > 0
+                ? `冷却 ${(cooldownRemaining / 1_000).toFixed(1)}s`
+                : "提交答案"}
+        </button>
       </div>
     </aside>
   );
@@ -1371,16 +1363,12 @@ function GameSidebar({ room, onError }: { room: RoomState; onError: (message?: s
     <div className="game-sidebar">
       <div className="side-tabs" role="tablist">
         <button className={tab === "answer" ? "active" : ""} onClick={() => setTab("answer")} role="tab" type="button">
-          {round.questionType === "search" ? "搜索答题" : "选择答题"}
+          选择答题
         </button>
         <button className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")} role="tab" type="button">房间聊天</button>
       </div>
       {tab === "answer" ? (
-        round.questionType === "choice" ? (
-          <ChoiceAnswerPanel onError={onError} round={round} />
-        ) : (
-          <SearchAnswerPanel onError={onError} round={round} wordBankIds={room.settings.wordBankIds} />
-        )
+        <ChoiceAnswerPanel onError={onError} round={round} />
       ) : (
         <RoomChatPanel onError={onError} room={room} />
       )}

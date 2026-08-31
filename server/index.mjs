@@ -27,6 +27,7 @@ import { getProgressiveDrawingPlan } from "../src/progressive-drawing.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 const CHOICE_OPTION_COUNT = 10;
+const ANSWER_SUBMIT_COOLDOWN_MS = 1_000;
 const TEST_BOT_NAME = "旅店老板 AI";
 const AI_CHOOSE_DELAY_MS = 700;
 const cardCatalogPath = path.join(
@@ -196,7 +197,7 @@ if (process.env.NODE_ENV !== "production") {
   ALLOWED_ORIGINS.add("http://127.0.0.1:5173");
 }
 const ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家通过选择或搜索卡牌作答。";
+const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家从十个候选答案中选择并提交。";
 const CARD_IMAGE_SOURCE =
   "https://art.hearthstonejson.com/v1/render/latest/zhCN/256x";
 const cardImageDir = path.resolve(
@@ -736,7 +737,7 @@ function createRoom(host, details = {}) {
       roundsPerPlayer: 2,
       roundTime: 60,
       maxPlayers: 8,
-      answerMode: "mixed",
+      answerMode: "choice",
       wordBankIds: [],
     },
     messages: [],
@@ -892,14 +893,8 @@ function buildRoundClues(room, current, viewerId) {
   const rarityVisible = Boolean(scopedRarity) || stage >= rarityHintStage;
   const showCostBand = stage === 1 && Boolean(scopedType) && Boolean(scopedRarity);
   const selection = current.answers?.get(viewerId);
-  const durationMs = roundDurationMs(room);
   const attributeClue = getCardAttributeClue(card);
-  const selectedScore = selection
-    ? calculateScore(
-      Math.max(0, current.startedAt + durationMs - selection.selectedAt),
-      durationMs,
-    )
-    : null;
+  const selectedScore = selection?.correct ? selection.score : null;
 
   return {
     stage,
@@ -1025,6 +1020,11 @@ function cardPreview(name) {
   return {
     id: card.id,
     name: card.name,
+    wordLength: countWordCharacters(card.name),
+    cost: Number.isFinite(card.cost) ? card.cost : null,
+    attack: Number.isFinite(card.attack) ? card.attack : null,
+    health: Number.isFinite(card.health) ? card.health : null,
+    armor: Number.isFinite(card.armor) ? card.armor : null,
     type: card.type,
     imageUrl: card.imageUrl,
   };
@@ -1070,9 +1070,7 @@ function publicState(room, viewerId) {
         isHost: player.id === room.hostId,
         isDrawer: player.id === current?.drawerId,
         hasAnswered: current?.answers?.has(player.id) ?? false,
-        answeredCorrectly:
-          (room.phase === "roundEnd" || room.phase === "gameOver") &&
-          (current?.correctPlayers?.has(player.id) ?? false),
+        answeredCorrectly: current?.correctPlayers?.has(player.id) ?? false,
       })),
     round: current
       ? {
@@ -1111,21 +1109,27 @@ function publicState(room, viewerId) {
               ? cardPreview(selectedWord)
               : null,
           answerOptions:
-            room.phase === "drawing" && !isDrawer && !isSpectator && current.questionType === "choice"
+            room.phase === "drawing" && !isDrawer && !isSpectator
               ? current.answerOptions
               : [],
           answerOptionCards:
-            room.phase === "drawing" && !isDrawer && !isSpectator && current.questionType === "choice"
+            room.phase === "drawing" && !isDrawer && !isSpectator
               ? current.answerOptions.map(cardPreview)
               : [],
           selectedAnswerIndex:
-            !isDrawer && !isSpectator && current.questionType === "choice" && current.answers?.has(viewerId)
+            !isDrawer && !isSpectator && current.answers?.has(viewerId)
               ? current.answers.get(viewerId).index
               : null,
-          selectedAnswerName:
-            !isDrawer && !isSpectator && current.questionType === "search" && current.answers?.has(viewerId)
-              ? current.answers.get(viewerId).name
-              : "",
+          incorrectAnswerIndexes:
+            !isDrawer && !isSpectator
+              ? current.answers?.get(viewerId)?.incorrectIndexes ?? []
+              : [],
+          answerSubmittedCorrectly:
+            !isDrawer && !isSpectator && (current.correctPlayers?.has(viewerId) ?? false),
+          answerCooldownEndsAt:
+            !isDrawer && !isSpectator && current.answers?.has(viewerId)
+              ? current.answers.get(viewerId).submittedAt + ANSWER_SUBMIT_COOLDOWN_MS
+              : 0,
           clues:
             room.phase === "drawing" && !isDrawer
               ? buildRoundClues(room, current, viewerId)
@@ -1134,7 +1138,10 @@ function publicState(room, viewerId) {
         }
       : null,
     messages: room.messages,
-    canStart: room.phase === "lobby" && activeHumanPlayers(room).length >= 1,
+    canStart:
+      room.phase === "lobby" &&
+      activeHumanPlayers(room).length >= 1 &&
+      selectedWordBank.choiceWords.length >= 3,
     canJoinNextRound:
       isSpectator &&
       !viewer?.joinNextRound &&
@@ -1249,9 +1256,7 @@ function beginTurn(room) {
   const drawer = room.players.get(drawerId);
   const chooseDurationMs = drawer.isBot ? AI_CHOOSE_DELAY_MS : CHOOSE_TIME_MS;
   const selectedWordBank = getRoomWordBank(room);
-  const roundWordBank = room.settings.answerMode === "search"
-    ? selectedWordBank.words
-    : selectedWordBank.choiceWords;
+  const roundWordBank = selectedWordBank.choiceWords;
   const options = pickWords(roundWordBank, 3, room.recentWords.slice(-30));
   const now = Date.now();
   room.phase = "choosing";
@@ -1304,24 +1309,14 @@ function scheduleBotAnswers(room) {
       }
 
       const shouldAnswerCorrectly = crypto.randomInt(0, 100) < 65;
-      if (current.questionType === "choice") {
-        const correctIndex = current.answerOptions.indexOf(current.word);
-        const wrongIndexes = current.answerOptions
-          .map((_, index) => index)
-          .filter((index) => index !== correctIndex);
-        const index = shouldAnswerCorrectly
-          ? correctIndex
-          : wrongIndexes[crypto.randomInt(0, wrongIndexes.length)];
-        current.answers.set(bot.id, { index, selectedAt: Date.now() });
-      } else {
-        const wrongAnswers = getRoomWordBank(room).words.filter(
-          (word) => normalizeGuess(word) !== normalizeGuess(current.word),
-        );
-        const name = shouldAnswerCorrectly
-          ? current.word
-          : wrongAnswers[crypto.randomInt(0, wrongAnswers.length)];
-        current.answers.set(bot.id, { name, selectedAt: Date.now() });
-      }
+      const correctIndex = current.answerOptions.indexOf(current.word);
+      const wrongIndexes = current.answerOptions
+        .map((_, index) => index)
+        .filter((index) => index !== correctIndex);
+      const index = shouldAnswerCorrectly
+        ? correctIndex
+        : wrongIndexes[crypto.randomInt(0, wrongIndexes.length)];
+      recordChoiceSubmission(room, bot, index);
       emitState(room);
     }, delayMs);
   }
@@ -1490,16 +1485,12 @@ function startDrawing(room, word) {
   const now = Date.now();
   room.phase = "drawing";
   room.current.word = word;
-  room.current.questionType = room.settings.answerMode === "mixed"
-    ? (crypto.randomInt(0, 2) === 0 ? "choice" : "search")
-    : room.settings.answerMode;
-  room.current.answerOptions = room.current.questionType === "choice"
-    ? buildCardAnswerOptions(
-      getRoomWordBank(room).cards,
-      cardByName.get(word) ?? word,
-      CHOICE_OPTION_COUNT,
-    )
-    : [];
+  room.current.questionType = "choice";
+  room.current.answerOptions = buildCardAnswerOptions(
+    getRoomWordBank(room).cards,
+    cardByName.get(word) ?? word,
+    CHOICE_OPTION_COUNT,
+  );
   room.current.answers.clear();
   room.current.correctPlayers.clear();
   room.current.hintStage = 0;
@@ -1511,7 +1502,7 @@ function startDrawing(room, word) {
   if (room.recentWords.length > 100) room.recentWords.shift();
   addSystemMessage(
     room,
-    `${room.players.get(room.current.drawerId)?.name} 开始作画！本轮为${room.current.questionType === "choice" ? "选择题" : "搜索题"}。`,
+    `${room.players.get(room.current.drawerId)?.name} 开始作画！请从十个选项中提交答案。`,
   );
   if (room.players.get(room.current.drawerId)?.isBot) {
     addSystemMessage(room, "AI 正在先画卡面椭圆和主体彩色轮廓，再逐步铺色与补充暗部。");
@@ -1541,30 +1532,74 @@ function startDrawing(room, word) {
   );
 }
 
+function recordChoiceSubmission(room, player, index, submittedAt = Date.now()) {
+  const current = room.current;
+  if (!current) return { ok: false, error: "现在不能提交答案" };
+  const previous = current.answers.get(player.id);
+  if (current.correctPlayers.has(player.id)) {
+    return {
+      ok: true,
+      correct: true,
+      score: previous?.score ?? 0,
+      selectedAnswerIndex: previous?.index ?? index,
+    };
+  }
+
+  const retryAfterMs = previous
+    ? Math.max(0, previous.submittedAt + ANSWER_SUBMIT_COOLDOWN_MS - submittedAt)
+    : 0;
+  if (retryAfterMs > 0) {
+    return {
+      ok: false,
+      error: "提交冷却中，请稍后再试",
+      retryAfterMs,
+    };
+  }
+
+  const correct = current.answerOptions[index] === current.word;
+  const incorrectIndexes = new Set(previous?.incorrectIndexes ?? []);
+  if (!correct) incorrectIndexes.add(index);
+  const selection = {
+    index,
+    selectedAt: submittedAt,
+    submittedAt,
+    correct,
+    score: null,
+    incorrectIndexes: [...incorrectIndexes],
+  };
+
+  if (correct) {
+    const durationMs = roundDurationMs(room);
+    const remaining = Math.max(0, current.endsAt - submittedAt);
+    const score = calculateScore(remaining, durationMs);
+    selection.score = score;
+    if (!player.isBot) player.score += score;
+    current.correctPlayers.add(player.id);
+    const drawer = room.players.get(current.drawerId);
+    if (drawer && !drawer.isBot) {
+      drawer.score += Math.max(5, Math.round(score * 0.25));
+    }
+  }
+
+  current.answers.set(player.id, selection);
+  return {
+    ok: true,
+    correct,
+    score: selection.score ?? undefined,
+    selectedAnswerIndex: index,
+    retryAfterMs: ANSWER_SUBMIT_COOLDOWN_MS,
+  };
+}
+
 function settleAnswers(room) {
   const current = room.current;
   if (!current) return;
 
   const correctPlayers = [];
-  const drawer = room.players.get(current.drawerId);
-  const durationMs = roundDurationMs(room);
-
-  for (const [playerId, selection] of current.answers) {
+  for (const playerId of current.correctPlayers) {
     const player = room.players.get(playerId);
     if (!player || player.left || player.isSpectator) continue;
-    const selectedWord = current.questionType === "choice"
-      ? current.answerOptions[selection.index]
-      : selection.name;
-    if (selectedWord !== current.word) continue;
-
-    const remaining = Math.max(0, current.endsAt - selection.selectedAt);
-    const score = calculateScore(remaining, durationMs);
-    if (!player.isBot) player.score += score;
-    current.correctPlayers.add(player.id);
     correctPlayers.push(player.name);
-    if (drawer && !drawer.isBot) {
-      drawer.score += Math.max(5, Math.round(score * 0.25));
-    }
   }
 
   addSystemMessage(
@@ -1648,11 +1683,6 @@ function validateSettings(input, current) {
     : normalizeWordBankIds(current?.wordBankIds);
   const selectedWordBank = resolveWordBank(wordBankIds);
   if (selectedWordBank.words.length === 0) return null;
-  let answerMode = ["mixed", "choice", "search"].includes(input?.answerMode)
-    ? input.answerMode
-    : current.answerMode;
-  if (selectedWordBank.choiceWords.length < 3) answerMode = "search";
-
   return {
     roundsPerPlayer: Math.round(Math.max(
       1,
@@ -1665,7 +1695,7 @@ function validateSettings(input, current) {
       2,
       Math.min(12, Number(input?.maxPlayers) || current.maxPlayers),
     )),
-    answerMode,
+    answerMode: "choice",
     wordBankIds,
   };
 }
@@ -1986,6 +2016,10 @@ io.on("connection", (socket) => {
       respond(callback, { ok: false, error: "至少需要一名真人玩家" });
       return;
     }
+    if (getRoomWordBank(context.room).choiceWords.length < 3) {
+      respond(callback, { ok: false, error: "当前词库不足以生成十选一题目，请扩大题目范围" });
+      return;
+    }
     let players = activePlayers(context.room);
     if (players.length === 1) {
       addTestBot(context.room);
@@ -2096,16 +2130,16 @@ io.on("connection", (socket) => {
     respond(callback, { ok: true });
   });
 
-  socket.on("select_answer", (payload, callback) => {
+  socket.on("submit_answer", (payload, callback) => {
     const context = getPlayerRoom(socket);
     if (!context || context.room.phase !== "drawing" || !context.room.current) {
-      respond(callback, { ok: false, error: "现在不能选择答案" });
+      respond(callback, { ok: false, error: "现在不能提交答案" });
       return;
     }
 
     const { room, player } = context;
-    if (socketRateLimited(socket, "answer", 12, 1_000)) {
-      respond(callback, { ok: false, error: "修改答案过于频繁，请稍后再试" });
+    if (socketRateLimited(socket, "answer", 20, 10_000)) {
+      respond(callback, { ok: false, error: "提交次数过多，请稍后再试" });
       return;
     }
     if (player.isSpectator) {
@@ -2116,11 +2150,6 @@ io.on("connection", (socket) => {
       respond(callback, { ok: false, error: "作画者不能参与答题" });
       return;
     }
-    if (room.current.questionType !== "choice") {
-      respond(callback, { ok: false, error: "本轮不是选择题" });
-      return;
-    }
-
     const index = Number(payload?.index);
     if (
       !Number.isInteger(index) ||
@@ -2131,50 +2160,8 @@ io.on("connection", (socket) => {
       return;
     }
 
-    room.current.answers.set(player.id, {
-      index,
-      selectedAt: Date.now(),
-    });
-    respond(callback, { ok: true, selectedAnswerIndex: index });
-    emitState(room);
-  });
-
-  socket.on("select_search_answer", (payload, callback) => {
-    const context = getPlayerRoom(socket);
-    if (!context || context.room.phase !== "drawing" || !context.room.current) {
-      respond(callback, { ok: false, error: "现在不能选择答案" });
-      return;
-    }
-
-    const { room, player } = context;
-    if (socketRateLimited(socket, "answer", 12, 1_000)) {
-      respond(callback, { ok: false, error: "修改答案过于频繁，请稍后再试" });
-      return;
-    }
-    if (player.isSpectator) {
-      respond(callback, { ok: false, error: "围观者不能参与答题" });
-      return;
-    }
-    if (room.current.drawerId === player.id) {
-      respond(callback, { ok: false, error: "作画者不能参与答题" });
-      return;
-    }
-    if (room.current.questionType !== "search") {
-      respond(callback, { ok: false, error: "本轮不是搜索题" });
-      return;
-    }
-
-    const name = String(payload?.name ?? "").trim().slice(0, 80);
-    if (!getRoomWordBank(room).names.has(name)) {
-      respond(callback, { ok: false, error: "请选择检索结果中的卡牌" });
-      return;
-    }
-
-    room.current.answers.set(player.id, {
-      name,
-      selectedAt: Date.now(),
-    });
-    respond(callback, { ok: true, selectedAnswerName: name });
+    const result = recordChoiceSubmission(room, player, index);
+    respond(callback, result);
     emitState(room);
   });
 

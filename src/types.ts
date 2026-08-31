@@ -5,8 +5,8 @@ export type GamePhase =
   | "roundEnd"
   | "gameOver";
 
-export type AnswerMode = "mixed" | "choice" | "search";
-export type QuestionType = "choice" | "search";
+export type AnswerMode = "choice";
+export type QuestionType = "choice";
 
 export interface GameSettings {
   roundsPerPlayer: number;
@@ -75,6 +75,11 @@ export interface LobbyState {
 export interface CardPreview {
   id: string;
   name: string;
+  wordLength: number;
+  cost: number | null;
+  attack: number | null;
+  health: number | null;
+  armor: number | null;
   type: string;
   imageUrl: string;
 }
@@ -122,7 +127,9 @@ export interface RoundState {
   answerOptions: string[];
   answerOptionCards: CardPreview[];
   selectedAnswerIndex: number | null;
-  selectedAnswerName: string;
+  incorrectAnswerIndexes: number[];
+  answerSubmittedCorrectly: boolean;
+  answerCooldownEndsAt: number;
   clues: RoundClueState | null;
   resultReason: "timeout" | "drawerLeft" | null;
 }
@@ -194,8 +201,9 @@ export interface ServerResponse {
   roomCode?: string;
   playerToken?: string;
   correct?: boolean;
+  score?: number;
+  retryAfterMs?: number;
   selectedAnswerIndex?: number;
-  selectedAnswerName?: string;
   isSpectator?: boolean;
   joinQueued?: boolean;
 }

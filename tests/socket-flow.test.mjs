@@ -78,7 +78,7 @@ function trackState(socket, event = "room_state") {
   };
 }
 
-async function startRound(t, answerMode, settings = {}) {
+async function startRound(t, answerMode = "choice", settings = {}, runtime = {}) {
   const port = await getFreePort();
   const url = `http://127.0.0.1:${port}`;
   let childLogs = "";
@@ -87,8 +87,8 @@ async function startRound(t, answerMode, settings = {}) {
     env: {
       ...process.env,
       PORT: String(port),
-      ROUND_TIME_OVERRIDE_MS: "1000",
-      FINAL_REVEAL_OVERRIDE_MS: "200",
+      ROUND_TIME_OVERRIDE_MS: String(runtime.roundTimeMs ?? 1_000),
+      FINAL_REVEAL_OVERRIDE_MS: String(runtime.finalRevealMs ?? 200),
     },
     stdio: "pipe",
   });
@@ -161,7 +161,7 @@ async function startRound(t, answerMode, settings = {}) {
     /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u,
   );
   assert.equal(drawing.round.finalRevealCard, null);
-  assert.equal(drawing.round.durationMs, 1000);
+  assert.equal(drawing.round.durationMs, runtime.roundTimeMs ?? 1_000);
   assert.equal(drawing.round.clues.stage, 0);
   assert.equal(drawing.round.clues.range, drawing.wordBankName);
   assert.equal(drawing.round.clues.scoreBand.maximum, 100);
@@ -183,10 +183,12 @@ async function startRound(t, answerMode, settings = {}) {
   return { answer, choosing, drawing, guest, guestState, host, hostState, url };
 }
 
-test("an answerer can change a numbered choice before timeout", async (t) => {
+test("a wrong choice can be retried after the one-second submit cooldown", async (t) => {
   const { answer, drawing, guest, guestState, host, hostState } = await startRound(
     t,
     "choice",
+    {},
+    { roundTimeMs: 2_500 },
   );
   assert.equal(drawing.round.questionType, "choice");
   assert.equal(drawing.round.answerOptions.length, 10);
@@ -212,6 +214,12 @@ test("an answerer can change a numbered choice before timeout", async (t) => {
   assert.ok(
     drawing.round.answerOptionCards.every(
       (card) => card.type === correctCard.type,
+    ),
+  );
+  assert.ok(
+    drawing.round.answerOptionCards.every((card) =>
+      Number.isInteger(card.wordLength) &&
+      ["number", "object"].includes(typeof card.cost)
     ),
   );
   assert.ok(
@@ -269,19 +277,37 @@ test("an answerer can change a numbered choice before timeout", async (t) => {
 
   const correctIndex = drawing.round.answerOptions.indexOf(answer);
   const wrongIndex = (correctIndex + 1) % drawing.round.answerOptions.length;
-  const firstChoice = await emitAck(guest, "select_answer", { index: wrongIndex });
+  const firstChoice = await emitAck(guest, "submit_answer", { index: wrongIndex });
   assert.equal(firstChoice.ok, true);
+  assert.equal(firstChoice.correct, false);
+  assert.equal(firstChoice.retryAfterMs, 1_000);
   await guestState.waitFor(
-    (state) => state.round.selectedAnswerIndex === wrongIndex,
+    (state) =>
+      state.round.selectedAnswerIndex === wrongIndex &&
+      state.round.incorrectAnswerIndexes.includes(wrongIndex),
   );
 
-  const changedChoice = await emitAck(guest, "select_answer", {
+  const cooledDown = await emitAck(guest, "submit_answer", {
     index: correctIndex,
   });
+  assert.equal(cooledDown.ok, false);
+  assert.match(cooledDown.error, /冷却/u);
+  assert.ok(cooledDown.retryAfterMs > 0 && cooledDown.retryAfterMs <= 1_000);
+
+  await new Promise((resolve) => setTimeout(resolve, 1_025));
+  const changedChoice = await emitAck(guest, "submit_answer", { index: correctIndex });
   assert.equal(changedChoice.ok, true);
+  assert.equal(changedChoice.correct, true);
+  assert.ok(changedChoice.score >= 20 && changedChoice.score <= 100);
   assert.equal(changedChoice.selectedAnswerIndex, correctIndex);
+  const duplicateChoice = await emitAck(guest, "submit_answer", { index: correctIndex });
+  assert.equal(duplicateChoice.ok, true);
+  assert.equal(duplicateChoice.correct, true);
+  assert.equal(duplicateChoice.score, changedChoice.score);
   await guestState.waitFor(
-    (state) => state.round.selectedAnswerIndex === correctIndex,
+    (state) =>
+      state.round.selectedAnswerIndex === correctIndex &&
+      state.round.answerSubmittedCorrectly,
   );
 
   const finalReveal = await guestState.waitFor(
@@ -302,18 +328,23 @@ test("an answerer can change a numbered choice before timeout", async (t) => {
   );
   const answerer = ended.players.find((player) => player.name === "猜客乙");
   assert.equal(answerer.answeredCorrectly, true);
-  assert.ok(answerer.score >= 20 && answerer.score <= 100);
+  assert.equal(answerer.score, changedChoice.score);
+  assert.equal(
+    ended.players.find((player) => player.name === "画师甲").score,
+    Math.max(5, Math.round(changedChoice.score * 0.25)),
+  );
 });
 
-test("a search answer can be filtered, selected, and changed before timeout", async (t) => {
+test("legacy search settings still produce choices while card search remains available", async (t) => {
   const { answer, drawing, guest, guestState, hostState, url } = await startRound(
     t,
     "search",
   );
-  assert.equal(drawing.round.questionType, "search");
-  assert.equal(drawing.round.answerOptions.length, 0);
-  assert.equal(drawing.round.answerOptionCards.length, 0);
-  assert.equal(hostState.current.round.selectedAnswerName, "");
+  assert.equal(drawing.settings.answerMode, "choice");
+  assert.equal(drawing.round.questionType, "choice");
+  assert.equal(drawing.round.answerOptions.length, 10);
+  assert.equal(drawing.round.answerOptionCards.length, 10);
+  assert.equal(hostState.current.round.answerOptions.length, 0);
 
   const searchResponse = await fetch(
     `${url}/api/cards/search?name=${encodeURIComponent(answer)}`,
@@ -357,22 +388,12 @@ test("a search answer can be filtered, selected, and changed before timeout", as
   assert.ok(armorData.results.length > 0);
   assert.ok(armorData.results.every((card) => card.armor === 7));
 
-  const wrongAnswer = answer === "霜之哀伤" ? "海拉" : "霜之哀伤";
-  const firstChoice = await emitAck(guest, "select_search_answer", {
-    name: wrongAnswer,
-  });
-  assert.equal(firstChoice.ok, true);
+  const correctIndex = drawing.round.answerOptions.indexOf(answer);
+  const submitted = await emitAck(guest, "submit_answer", { index: correctIndex });
+  assert.equal(submitted.ok, true);
+  assert.equal(submitted.correct, true);
   await guestState.waitFor(
-    (state) => state.round.selectedAnswerName === wrongAnswer,
-  );
-
-  const changedChoice = await emitAck(guest, "select_search_answer", {
-    name: answer,
-  });
-  assert.equal(changedChoice.ok, true);
-  assert.equal(changedChoice.selectedAnswerName, answer);
-  await guestState.waitFor(
-    (state) => state.round.selectedAnswerName === answer,
+    (state) => state.round.answerSubmittedCorrectly,
   );
 
   const ended = await guestState.waitFor((state) => state.phase === "roundEnd");
@@ -385,7 +406,7 @@ test("a search answer can be filtered, selected, and changed before timeout", as
 test("scope-aware staged hints preserve an early answer score", async (t) => {
   const { answer, drawing, guest, guestState } = await startRound(
     t,
-    "search",
+    "choice",
     { wordBankIds: ["legendary", "minion"] },
   );
   const initialFields = Object.fromEntries(
@@ -400,7 +421,8 @@ test("scope-aware staged hints preserve an early answer score", async (t) => {
   assert.equal(initialFields.cost.value, "待揭示");
   assert.equal(initialFields.text.value, "待揭示");
 
-  const selected = await emitAck(guest, "select_search_answer", { name: answer });
+  const correctIndex = drawing.round.answerOptions.indexOf(answer);
+  const selected = await emitAck(guest, "submit_answer", { index: correctIndex });
   assert.equal(selected.ok, true);
   const earlyState = await guestState.waitFor(
     (state) => state.round.clues.selectedScore !== null,
@@ -438,7 +460,7 @@ test("scope-aware staged hints preserve an early answer score", async (t) => {
 test("room word banks combine same-group unions with cross-group intersections", async (t) => {
   const { answer, choosing, drawing, guest, hostState, url } = await startRound(
     t,
-    "search",
+    "choice",
     { wordBankIds: ["common", "rare", "minion"] },
   );
   const cards = JSON.parse(
@@ -457,7 +479,7 @@ test("room word banks combine same-group unions with cross-group intersections",
   assert.equal(choosing.wordBankCount, filteredNames.size);
   assert.ok(choosing.round.options.every((name) => filteredNames.has(name)));
   assert.ok(filteredNames.has(answer));
-  assert.equal(drawing.round.questionType, "search");
+  assert.equal(drawing.round.questionType, "choice");
 
   const filteredResponse = await fetch(
     `${url}/api/cards/search?wordBanks=common,rare,minion&name=${encodeURIComponent(answer)}`,
@@ -471,7 +493,7 @@ test("room word banks combine same-group unions with cross-group intersections",
   const legendaryData = await legendaryResponse.json();
   assert.equal(legendaryData.total, 0);
 
-  const rejected = await emitAck(guest, "select_search_answer", { name: "霜之哀伤" });
+  const rejected = await emitAck(guest, "submit_answer", { index: 99 });
   assert.equal(rejected.ok, false);
   assert.deepEqual(hostState.current.settings.wordBankIds, ["rare", "common", "minion"]);
 });
@@ -899,7 +921,7 @@ test("a spectator can watch a running room and join from the next round at zero 
   assert.equal(spectatorDrawing.round.answerOptions.length, 0);
   assert.equal(spectatorDrawing.round.answerOptionCards.length, 0);
 
-  const blockedAnswer = await emitAck(spectator, "select_answer", { index: 0 });
+  const blockedAnswer = await emitAck(spectator, "submit_answer", { index: 0 });
   assert.equal(blockedAnswer.ok, false);
   assert.equal(blockedAnswer.error, "围观者不能参与答题");
 
