@@ -828,6 +828,11 @@ function GameRoom({
   const [endingRound, setEndingRound] = useState(false);
   const drawer = room.players.find((player) => player.id === round?.drawerId);
   const self = room.players.find((player) => player.id === room.selfId);
+  const isAnswering =
+    room.phase === "drawing" &&
+    !room.isDrawer &&
+    !room.isSpectator &&
+    Boolean(round?.questionType);
   const overlay =
     room.phase === "choosing"
       ? room.isDrawer
@@ -906,7 +911,7 @@ function GameRoom({
       </section>
 
       {room.phase === "drawing" && !room.isDrawer && round?.clues && (
-        <RoundCluePanel isSpectator={room.isSpectator} round={round} />
+        <RoundCluePanel card={round.clueCard} isSpectator={room.isSpectator} round={round} />
       )}
 
       {room.isSpectator && (
@@ -926,7 +931,7 @@ function GameRoom({
         </section>
       )}
 
-      <div className="game-grid">
+      <div className={`game-grid ${isAnswering ? "answering-layout" : ""}`}>
         <div className="board-column">
           {room.phase === "choosing" && room.isDrawer && (
             <div className="word-picker">
@@ -943,7 +948,7 @@ function GameRoom({
           )}
           <div
             className={`drawer-workspace ${
-              round?.referenceCard || round?.clueCard || round?.answerCard ? "with-reference" : ""
+              round?.referenceCard || round?.answerCard ? "with-reference" : ""
             } ${room.phase === "roundEnd" ? "settlement-workspace" : ""}`.trim()}
           >
             {room.phase === "drawing" && room.isDrawer && round?.referenceCard && (
@@ -962,9 +967,6 @@ function GameRoom({
                 <strong>{round.referenceCard.name}</strong>
                 <p>可观察卡面手绘，也可选择轮廓辅助；参考图仅你可见。</p>
               </aside>
-            )}
-            {room.phase === "drawing" && !room.isDrawer && round?.clueCard && round.clues && (
-              <ClueCardReveal card={round.clueCard} stage={round.clues.stage} />
             )}
             {room.phase === "roundEnd" && round?.answerCard && (
               <aside className="drawer-reference settlement-card-reference" aria-label="本轮正确答案">
@@ -1055,9 +1057,11 @@ function ClueCardReveal({
 }
 
 function RoundCluePanel({
+  card,
   round,
   isSpectator,
 }: {
+  card: NonNullable<RoomState["round"]>["clueCard"];
   round: NonNullable<RoomState["round"]>;
   isSpectator: boolean;
 }) {
@@ -1087,6 +1091,7 @@ function RoundCluePanel({
       aria-label="本题线索"
       className={`round-clue-panel stage-${clues.stage}`}
     >
+      {card && <ClueCardReveal card={card} stage={clues.stage} />}
       <div className="clue-summary">
         <div className="clue-range" title={clues.range}>
           <span>题库范围</span>
