@@ -938,7 +938,7 @@ function GameRoom({
               <strong>{round?.word}</strong>
             </div>
           )}
-          <div className={round?.referenceCard ? "drawer-workspace with-reference" : "drawer-workspace"}>
+          <div className={round?.referenceCard || round?.clueCard ? "drawer-workspace with-reference" : "drawer-workspace"}>
             {room.phase === "drawing" && room.isDrawer && round?.referenceCard && (
               <aside className="drawer-reference" aria-label="作画参考卡牌">
                 <div className="drawer-reference-heading">
@@ -956,6 +956,9 @@ function GameRoom({
                 <p>可观察卡面手绘，也可选择轮廓辅助；参考图仅你可见。</p>
               </aside>
             )}
+            {room.phase === "drawing" && !room.isDrawer && round?.clueCard && round.clues && (
+              <ClueCardReveal card={round.clueCard} stage={round.clues.stage} />
+            )}
             <CanvasBoard
               canDraw={room.phase === "drawing" && room.isDrawer}
               finalRevealImageUrl={round?.finalRevealCard?.imageUrl}
@@ -971,6 +974,55 @@ function GameRoom({
         <GameSidebar onError={onError} room={room} />
       </div>
     </div>
+  );
+}
+
+function ClueCardReveal({
+  card,
+  stage,
+}: {
+  card: NonNullable<NonNullable<RoomState["round"]>["clueCard"]>;
+  stage: number;
+}) {
+  const stickers = [
+    { className: "cost", label: "费用", revealAt: 2 },
+    { className: "class", label: "职业", revealAt: 1 },
+    { className: "attack", label: "攻击", revealAt: 2 },
+    { className: "health", label: "生命 / 耐久", revealAt: 2 },
+    { className: "name", label: "卡牌名称", revealAt: Number.POSITIVE_INFINITY },
+    { className: "description", label: "卡牌描述", revealAt: 2 },
+  ];
+  const stageText = ["插画已显现", "职业封印已揭开", "属性与描述已揭开"];
+
+  return (
+    <aside className={`drawer-reference clue-card-reference stage-${stage}`} aria-label="逐步解密的提示卡牌">
+      <div className="drawer-reference-heading">
+        <span>卡牌解密</span>
+        <small>随时间揭开贴纸</small>
+      </div>
+      <div className="clue-card-stage">
+        <CardImage
+          card={{ imageUrl: card.imageUrl, name: "待解密" }}
+          className="drawer-reference-visual clue-card-image"
+          loading="eager"
+        />
+        {stickers.map((sticker) => (
+          <span
+            aria-hidden="true"
+            className={`card-sticker ${sticker.className} ${stage >= sticker.revealAt ? "opened" : ""}`}
+            key={sticker.className}
+          >
+            {sticker.label}
+          </span>
+        ))}
+      </div>
+      <strong>{stageText[stage] ?? stageText[0]}</strong>
+      <p>
+        {stage >= 2
+          ? "卡名仍封印到本轮结算；现在可以结合属性、描述与画板作答。"
+          : "卡名始终封印；继续观察画板，下一阶段会揭开更多卡面信息。"}
+      </p>
+    </aside>
   );
 }
 
@@ -1028,7 +1080,7 @@ function RoundCluePanel({
       </div>
       <div className="clue-fields">
         {clues.fields.map((field) => (
-          <div className={field.source} key={field.key}>
+          <div className={`${field.source} ${field.key === "text" ? "description" : ""}`} key={field.key}>
             <span>{field.label}</span>
             <strong>{field.value}</strong>
             {field.source === "scope" && <small>题库范围</small>}

@@ -79,8 +79,12 @@ export interface CardPreview {
   imageUrl: string;
 }
 
+export interface ClueCardPreview {
+  imageUrl: string;
+}
+
 export interface RoundClueField {
-  key: "length" | "type" | "class" | "rarity" | "cost" | "stats";
+  key: "length" | "type" | "class" | "rarity" | "cost" | "stats" | "text";
   label: string;
   value: string;
   source: "base" | "scope" | "hint" | "hidden";
@@ -112,6 +116,7 @@ export interface RoundState {
   options: string[];
   optionCards: CardPreview[];
   referenceCard: CardPreview | null;
+  clueCard: ClueCardPreview | null;
   finalRevealCard: CardPreview | null;
   answerCard: CardPreview | null;
   answerOptions: string[];

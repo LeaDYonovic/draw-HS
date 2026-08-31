@@ -1542,6 +1542,15 @@ textarea:focus {
 .stage-2 .clue-fields > .hint { border-color: rgba(220, 130, 77, 0.42); }
 .clue-fields > .hidden { border-style: dashed; opacity: 0.5; }
 .clue-fields > .hidden strong { color: #698987; }
+.clue-fields > .description { grid-column: span 2; }
+.clue-fields > .description strong {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.35;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
 
 @keyframes clue-reveal {
   0% { box-shadow: inset 0 0 0 2px rgba(241, 200, 99, 0.72); transform: translateY(-2px); }
@@ -1594,7 +1603,7 @@ textarea:focus {
 
 .drawer-workspace.with-reference {
   display: grid;
-  grid-template-columns: 188px minmax(0, 1fr);
+  grid-template-columns: 232px minmax(0, 1fr);
   align-items: stretch;
   gap: 10px;
 }
@@ -1635,10 +1644,93 @@ textarea:focus {
 }
 
 .drawer-reference-visual {
-  width: min(100%, 154px);
-  margin: 9px auto 5px;
+  width: min(100%, 204px);
+  margin: 11px auto 7px;
   filter: drop-shadow(0 9px 8px rgba(0, 0, 0, 0.34));
 }
+
+.clue-card-reference {
+  background:
+    radial-gradient(circle at 50% 22%, rgba(58, 153, 158, 0.34), transparent 36%),
+    linear-gradient(165deg, rgba(22, 62, 68, 0.98), rgba(7, 30, 37, 0.99));
+}
+
+.clue-card-stage {
+  position: relative;
+  width: min(100%, 204px);
+  margin: 11px auto 7px;
+  isolation: isolate;
+}
+
+.clue-card-stage .drawer-reference-visual {
+  width: 100%;
+  margin: 0;
+}
+
+.card-sticker {
+  position: absolute;
+  z-index: 3;
+  min-width: 42px;
+  min-height: 31px;
+  padding: 4px 5px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(107, 67, 30, 0.72);
+  border-radius: 4px 8px 4px 7px;
+  color: #5d351e;
+  background:
+    repeating-linear-gradient(-8deg, rgba(125, 74, 31, 0.08) 0 1px, transparent 1px 6px),
+    linear-gradient(145deg, #f5ce72, #d7923e);
+  box-shadow: 0 5px 9px rgba(24, 17, 10, 0.42), inset 0 1px rgba(255, 246, 194, 0.65);
+  font-family: var(--font-display);
+  font-size: 0.57rem;
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+  transition: opacity 650ms ease, filter 650ms ease, transform 650ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.card-sticker::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 23%;
+  width: 54%;
+  height: 7px;
+  border-radius: 1px;
+  background: rgba(255, 243, 197, 0.68);
+  box-shadow: 0 1px 2px rgba(77, 48, 24, 0.22);
+}
+
+.card-sticker.cost { top: 9%; left: 0; width: 34%; height: 19%; transform: rotate(-5deg); }
+.card-sticker.class { top: 9%; right: 0; width: 34%; height: 19%; transform: rotate(5deg); }
+.card-sticker.attack { bottom: 8%; left: 0; width: 34%; height: 20%; transform: rotate(4deg); }
+.card-sticker.health { right: 0; bottom: 8%; width: 34%; height: 20%; transform: rotate(-4deg); }
+.card-sticker.name {
+  top: 48%;
+  left: 12%;
+  width: 76%;
+  min-height: 0;
+  height: 12%;
+  transform: rotate(-1deg);
+}
+.card-sticker.description {
+  top: 62%;
+  left: 14%;
+  width: 72%;
+  height: 21%;
+  transform: rotate(1deg);
+}
+.card-sticker.opened {
+  pointer-events: none;
+  opacity: 0;
+  filter: blur(2px);
+}
+.card-sticker.cost.opened,
+.card-sticker.attack.opened,
+.card-sticker.description.opened { transform: translate(-18px, -16px) rotate(-15deg) scale(0.82); }
+.card-sticker.class.opened,
+.card-sticker.health.opened { transform: translate(18px, -16px) rotate(15deg) scale(0.82); }
 
 .drawer-reference > strong {
   width: 100%;
@@ -2604,9 +2696,10 @@ textarea:focus {
   .spectator-join-bar { align-items: stretch; }
   .spectator-join-bar > div { grid-template-columns: 1fr; }
   .spectator-join-bar span { grid-row: auto; }
-  .drawer-workspace.with-reference { grid-template-columns: 160px minmax(0, 1fr); }
+  .drawer-workspace.with-reference { grid-template-columns: 190px minmax(0, 1fr); }
   .drawer-reference { padding-inline: 8px; }
-  .drawer-reference-visual { width: min(100%, 126px); }
+  .drawer-reference-visual,
+  .clue-card-stage { width: min(100%, 158px); }
   .canvas-frame { height: min(64vh, 520px); min-height: 340px; }
   .chat-panel { height: 330px; }
   .answer-panel { height: min(62vh, 540px); min-height: 420px; }
@@ -2656,6 +2749,17 @@ textarea:focus {
   .drawer-reference-visual { grid-column: 1; grid-row: 1 / 4; width: 84px; margin: 0; }
   .drawer-reference > strong { grid-column: 2; text-align: left; }
   .drawer-reference > p { grid-column: 2; margin: 0; padding-top: 3px; text-align: left; }
+  .clue-card-reference {
+    grid-template-columns: 118px minmax(0, 1fr);
+  }
+  .clue-card-reference .clue-card-stage {
+    grid-column: 1;
+    grid-row: 1 / 4;
+    width: 118px;
+    margin: 0;
+  }
+  .clue-card-reference > strong { grid-column: 2; }
+  .clue-card-reference > p { grid-column: 2; }
   .canvas-frame { min-height: 300px; }
 }
 

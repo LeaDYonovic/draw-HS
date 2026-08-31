@@ -50,6 +50,15 @@ test("records the source version for the generated card catalog", () => {
   assert.ok(Number.isFinite(Date.parse(metadata.lastModified)));
 });
 
+test("retains card descriptions for staged clue reveals", () => {
+  const cards = loadCardCatalog(
+    path.join(root, "collectible_cards_zhCN.full.json"),
+  );
+  const librarian = cards.find((card) => card.name === "夜色镇图书管理员");
+
+  assert.match(librarian.text, /随机弃一张牌/u);
+});
+
 test("normalizes spacing and punctuation in guesses", () => {
   assert.equal(normalizeGuess(" 维克多 · 奈法里奥斯！"), "维克多奈法里奥斯");
   assert.equal(normalizeGuess("ＡＢＣ"), "abc");

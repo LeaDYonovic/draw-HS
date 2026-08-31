@@ -863,6 +863,21 @@ function clueField(key, label, value, source = "hidden") {
   return { key, label, value: value || "待揭示", source };
 }
 
+function formatCardText(card) {
+  const plainText = String(card?.text ?? "")
+    .replace(/<br\s*\/?>/giu, "\n")
+    .replace(/<[^>]+>/gu, "")
+    .replace(/&nbsp;/giu, " ")
+    .replace(/&lt;/giu, "<")
+    .replace(/&gt;/giu, ">")
+    .replace(/&amp;/giu, "&")
+    .replace(/\n+/gu, " ")
+    .replace(/\s{2,}/gu, " ")
+    .trim();
+  if (!plainText) return "无卡牌描述";
+  return plainText.replaceAll(card.name, maskWord(card.name));
+}
+
 function buildRoundClues(room, current, viewerId) {
   const card = cardByName.get(current?.word);
   if (!card) return null;
@@ -931,6 +946,12 @@ function buildRoundClues(room, current, viewerId) {
             stage >= 2 ? "hint" : "hidden",
           )]
         : []),
+      clueField(
+        "text",
+        "卡牌描述",
+        stage >= 2 ? formatCardText(card) : "",
+        stage >= 2 ? "hint" : "hidden",
+      ),
     ],
   };
 }
@@ -1075,6 +1096,10 @@ function publicState(room, viewerId) {
           referenceCard:
             room.phase === "drawing" && isDrawer
               ? cardPreview(selectedWord)
+              : null,
+          clueCard:
+            room.phase === "drawing" && !isDrawer
+              ? { imageUrl: cardPreview(selectedWord)?.imageUrl ?? "" }
               : null,
           finalRevealCard:
             room.phase === "drawing" && current.finalCardVisible

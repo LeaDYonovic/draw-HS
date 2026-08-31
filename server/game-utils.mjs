@@ -45,6 +45,7 @@ export function loadCardCatalog(filePath, options = {}) {
         attack: Number.isFinite(card.attack) ? card.attack : null,
         armor: Number.isFinite(card.armor) ? card.armor : null,
         health: Number.isFinite(card.health) ? card.health : null,
+        text: typeof card.text === "string" ? card.text.trim() : "",
         type: typeof card.type === "string" ? card.type : "",
         imageUrl: id
           ? `${
