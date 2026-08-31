@@ -1,7 +1,6 @@
 import pngjs from "pngjs";
 import {
-  buildOutlineSegments,
-  buildSandShadingSegments,
+  buildAssistedDrawing,
   getCardArtLayout,
 } from "../src/outline-assist.mjs";
 
@@ -90,6 +89,12 @@ export function buildBotTypeSketch(card) {
   const variation = ((hash % 17) - 8) / 400;
   const accent = CLASS_COLORS[card?.cardClass] ?? "#b56b3f";
   const centerX = 0.5 + variation;
+
+  addEllipse(segments, 0.5, 0.5, 0.39, 0.42, {
+    steps: 32,
+    color: accent,
+    size: 3.4,
+  });
 
   if (card?.type === "MINION") {
     addEllipse(segments, centerX, 0.35, 0.12, 0.13, { steps: 16, color: accent, size: 4 });
@@ -194,23 +199,16 @@ export function buildBotDrawingFromPng(pngBuffer, card, options = {}) {
     throw new Error("AI 卡图尺寸异常");
   }
   const layout = getCardArtLayout(card?.type);
-  const artwork = cropArtwork(image, layout, options.gridWidth ?? 144);
-  const sharedOptions = {
+  const artwork = cropArtwork(image, layout, options.gridWidth ?? 112);
+  return buildAssistedDrawing(artwork, {
     canvasAspect: options.canvasAspect ?? 4 / 3,
     colorMode: "sampled",
-    mask: layout.mask,
-  };
-  const outline = buildOutlineSegments(artwork, {
-    ...sharedOptions,
     detail: options.detail ?? "standard",
-    maxSegments: options.maxOutlineSegments ?? options.maxSegments ?? 360,
-  }).segments;
-  const shading = buildSandShadingSegments(artwork, {
-    ...sharedOptions,
-    maxSegments: options.maxShadingSegments ?? 90,
-    rowStep: options.shadingRowStep ?? 6,
+    mask: layout.mask,
+    maxColoringSegments: options.maxColoringSegments ?? options.maxShadingSegments,
+    maxOutlineSegments: options.maxOutlineSegments ?? options.maxSegments,
+    coloringRowStep: options.coloringRowStep ?? options.shadingRowStep,
   });
-  return { outline, shading, segments: [...outline, ...shading] };
 }
 
 export function buildBotOutlineFromPng(pngBuffer, card, options = {}) {

@@ -1,50 +1,53 @@
 const ART_LAYOUTS = {
-  MINION: { x: 0.21, y: 0.10, width: 0.58, height: 0.34, mask: "ellipse" },
-  HERO: { x: 0.25, y: 0.15, width: 0.50, height: 0.31, mask: "ellipse" },
-  SPELL: { x: 0.18, y: 0.15, width: 0.68, height: 0.32, mask: "rounded" },
-  WEAPON: { x: 0.21, y: 0.14, width: 0.58, height: 0.33, mask: "ellipse" },
-  LOCATION: { x: 0.15, y: 0.18, width: 0.70, height: 0.35, mask: "rounded" },
+  MINION: { x: 0.17, y: 0.08, width: 0.66, height: 0.43, mask: "ellipse" },
+  HERO: { x: 0.20, y: 0.09, width: 0.60, height: 0.43, mask: "ellipse" },
+  SPELL: { x: 0.17, y: 0.10, width: 0.66, height: 0.41, mask: "ellipse" },
+  WEAPON: { x: 0.18, y: 0.09, width: 0.64, height: 0.42, mask: "ellipse" },
+  LOCATION: { x: 0.14, y: 0.10, width: 0.72, height: 0.45, mask: "ellipse" },
 };
 const DEFAULT_ART_LAYOUT = {
-  x: 0.20,
-  y: 0.14,
-  width: 0.60,
-  height: 0.34,
+  x: 0.17,
+  y: 0.10,
+  width: 0.66,
+  height: 0.42,
   mask: "rounded",
 };
 const DETAIL_PRESETS = {
   simple: {
     gridWidth: 84,
-    highQuantile: 0.88,
-    lowThresholdRatio: 0.52,
-    minComponentSize: 8,
-    maxSegments: 300,
-    minPathPoints: 6,
-    simplifyTolerance: 1.8,
-    brushSize: 2.4,
+    highQuantile: 0.84,
+    minimumHighThreshold: 58,
+    lowThresholdRatio: 0.48,
+    minComponentSize: 7,
+    maxSegments: 360,
+    minPathPoints: 5,
+    simplifyTolerance: 1.6,
+    brushSize: 2.8,
   },
   standard: {
-    gridWidth: 104,
-    highQuantile: 0.82,
-    lowThresholdRatio: 0.46,
-    minComponentSize: 5,
-    maxSegments: 520,
-    minPathPoints: 4,
-    simplifyTolerance: 0.9,
-    brushSize: 2,
+    gridWidth: 112,
+    highQuantile: 0.76,
+    minimumHighThreshold: 46,
+    lowThresholdRatio: 0.42,
+    minComponentSize: 4,
+    maxSegments: 600,
+    minPathPoints: 3,
+    simplifyTolerance: 0.78,
+    brushSize: 2.35,
   },
   detailed: {
-    gridWidth: 128,
-    highQuantile: 0.76,
-    lowThresholdRatio: 0.4,
-    minComponentSize: 3,
-    maxSegments: 820,
+    gridWidth: 144,
+    highQuantile: 0.68,
+    minimumHighThreshold: 36,
+    lowThresholdRatio: 0.36,
+    minComponentSize: 2,
+    maxSegments: 1_000,
     minPathPoints: 2,
-    simplifyTolerance: 0.55,
-    brushSize: 1.7,
+    simplifyTolerance: 0.45,
+    brushSize: 2,
   },
 };
-const OUTLINE_IMAGE_VERSION = "canvas-v3";
+const OUTLINE_IMAGE_VERSION = "canvas-v4";
 const DRAWING_PALETTE = [
   [38, 56, 61, "#26383d"],
   [181, 47, 50, "#b52f32"],
@@ -129,6 +132,21 @@ function blur(values, width, height) {
   return output;
 }
 
+function normalizeChannel(values, samples, minimumRange, minimumSignal = 0) {
+  const output = new Float32Array(values.length);
+  const darkPoint = percentile(samples, 0.08);
+  const lightPoint = percentile(samples, 0.92);
+  const observedRange = lightPoint - darkPoint;
+  if (observedRange < minimumSignal) {
+    return { values: output, darkPoint, lightPoint, observedRange };
+  }
+  const range = Math.max(minimumRange, observedRange);
+  for (let index = 0; index < values.length; index += 1) {
+    output[index] = clamp((values[index] - darkPoint) * 255 / range, 0, 255);
+  }
+  return { values: output, darkPoint, lightPoint, observedRange };
+}
+
 function sobel(values, width, height) {
   const gradientsX = new Float32Array(values.length);
   const gradientsY = new Float32Array(values.length);
@@ -151,6 +169,23 @@ function sobel(values, width, height) {
       gradientsX[index] = gradientX;
       gradientsY[index] = gradientY;
       magnitudes[index] = Math.hypot(gradientX, gradientY);
+    }
+  }
+  return { gradientsX, gradientsY, magnitudes };
+}
+
+function mergeGradientFields(fields) {
+  const length = fields[0].magnitudes.length;
+  const gradientsX = new Float32Array(length);
+  const gradientsY = new Float32Array(length);
+  const magnitudes = new Float32Array(length);
+  for (let index = 0; index < length; index += 1) {
+    for (const field of fields) {
+      const magnitude = field.magnitudes[index] * field.weight;
+      if (magnitude <= magnitudes[index]) continue;
+      magnitudes[index] = magnitude;
+      gradientsX[index] = field.gradientsX[index] * field.weight;
+      gradientsY[index] = field.gradientsY[index] * field.weight;
     }
   }
   return { gradientsX, gradientsY, magnitudes };
@@ -224,6 +259,29 @@ function connectWeakEdges(values, width, height, highThreshold, lowThreshold) {
     }
   }
   return accepted;
+}
+
+function bridgeEdgeGaps(accepted, strengths, width, height, minimumStrength) {
+  const bridged = accepted.slice();
+  const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+  for (let y = 2; y < height - 2; y += 1) {
+    for (let x = 2; x < width - 2; x += 1) {
+      const index = y * width + x;
+      if (!accepted[index]) continue;
+      for (const [directionX, directionY] of directions) {
+        const middle = (y + directionY) * width + x + directionX;
+        const end = (y + directionY * 2) * width + x + directionX * 2;
+        if (
+          !accepted[middle] &&
+          accepted[end] &&
+          strengths[middle] >= minimumStrength
+        ) {
+          bridged[middle] = 1;
+        }
+      }
+    }
+  }
+  return bridged;
 }
 
 function removeSmallComponents(accepted, width, height, minimumSize) {
@@ -407,16 +465,21 @@ function traceEdgePaths(accepted, strengths, width, height, preset) {
     if (simplified.length < 2) continue;
     let length = 0;
     let totalStrength = 0;
-    let closestToCenter = 1;
+    let centerDistance = 0;
+    let minimumX = width;
+    let maximumX = 0;
+    let minimumY = height;
+    let maximumY = 0;
     for (let index = 0; index < simplified.length; index += 1) {
       const point = simplified[index];
       const x = point % width;
       const y = Math.floor(point / width);
       totalStrength += strengths[point];
-      closestToCenter = Math.min(
-        closestToCenter,
-        Math.hypot(x / width - 0.5, y / height - 0.5),
-      );
+      centerDistance += Math.hypot(x / width - 0.5, y / height - 0.5);
+      minimumX = Math.min(minimumX, x);
+      maximumX = Math.max(maximumX, x);
+      minimumY = Math.min(minimumY, y);
+      maximumY = Math.max(maximumY, y);
       if (index > 0) {
         const previousPoint = simplified[index - 1];
         length += Math.hypot(
@@ -426,10 +489,26 @@ function traceEdgePaths(accepted, strengths, width, height, preset) {
       }
     }
     const averageStrength = totalStrength / simplified.length / maximumStrength;
-    const centrality = 1.2 - Math.min(0.45, closestToCenter * 0.7);
+    const averageCenterDistance = centerDistance / simplified.length;
+    const centrality = 1.45 - Math.min(0.7, averageCenterDistance * 1.25);
+    const spansCenter =
+      minimumX < width * 0.52 && maximumX > width * 0.48 &&
+      minimumY < height * 0.55 && maximumY > height * 0.45;
+    const subjectBonus = spansCenter &&
+      maximumX - minimumX >= width * 0.12 &&
+      maximumY - minimumY >= height * 0.12
+      ? 1.22
+      : 1;
+    const horizontalBackgroundPenalty =
+      maximumX - minimumX > width * 0.42 &&
+      maximumY - minimumY < height * 0.08
+      ? 0.52
+      : 1;
     paths.push({
       points: simplified,
-      score: length * centrality * (0.65 + averageStrength * 0.35),
+      score:
+        length * centrality * subjectBonus * horizontalBackgroundPenalty *
+        (0.6 + averageStrength * 0.4),
     });
   }
   paths.sort((first, second) => second.score - first.score);
@@ -472,26 +551,11 @@ function mapDrawingPoint(index, width, height, bounds) {
   };
 }
 
-function drawingColor(data, points, colorMode) {
+function quantizeDrawingColor(red, green, blue, colorMode) {
   if (colorMode !== "sampled") return "#26383d";
-  let red = 0;
-  let green = 0;
-  let blue = 0;
-  let samples = 0;
-  const step = Math.max(1, Math.floor(points.length / 12));
-  for (let index = 0; index < points.length; index += step) {
-    const pixel = points[index] * 4;
-    red += data[pixel];
-    green += data[pixel + 1];
-    blue += data[pixel + 2];
-    samples += 1;
-  }
-  red /= samples;
-  green /= samples;
-  blue /= samples;
   const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
   const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
-  if (saturation < 28 || luminance < 58) return "#26383d";
+  if (saturation < 28 || (luminance < 38 && saturation < 72)) return "#26383d";
   let nearest = DRAWING_PALETTE[0];
   let nearestDistance = Number.POSITIVE_INFINITY;
   for (const color of DRAWING_PALETTE.slice(1)) {
@@ -507,6 +571,55 @@ function drawingColor(data, points, colorMode) {
   return nearest[3];
 }
 
+function drawingColor(data, points, colorMode) {
+  if (colorMode !== "sampled") return "#26383d";
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+  let samples = 0;
+  const step = Math.max(1, Math.floor(points.length / 12));
+  for (let index = 0; index < points.length; index += step) {
+    const pixel = points[index] * 4;
+    red += data[pixel];
+    green += data[pixel + 1];
+    blue += data[pixel + 2];
+    samples += 1;
+  }
+  return quantizeDrawingColor(
+    red / samples,
+    green / samples,
+    blue / samples,
+    colorMode,
+  );
+}
+
+function ellipseFrameSegments(data, width, height, bounds, colorMode, size) {
+  const sourcePoints = [];
+  const output = [];
+  const steps = 48;
+  for (let index = 0; index < steps; index += 1) {
+    const angle = index / steps * Math.PI * 2;
+    const sourceX = clamp(Math.round(width / 2 + Math.cos(angle) * width * 0.43), 0, width - 1);
+    const sourceY = clamp(Math.round(height / 2 + Math.sin(angle) * height * 0.43), 0, height - 1);
+    sourcePoints.push(sourceY * width + sourceX);
+  }
+  const color = drawingColor(data, sourcePoints, colorMode);
+  for (let index = 0; index < steps; index += 1) {
+    const startAngle = index / steps * Math.PI * 2;
+    const endAngle = (index + 1) / steps * Math.PI * 2;
+    output.push({
+      x0: bounds.left + (0.5 + Math.cos(startAngle) * 0.49) * bounds.width,
+      y0: bounds.top + (0.5 + Math.sin(startAngle) * 0.49) * bounds.height,
+      x1: bounds.left + (0.5 + Math.cos(endAngle) * 0.49) * bounds.width,
+      y1: bounds.top + (0.5 + Math.sin(endAngle) * 0.49) * bounds.height,
+      color,
+      size: Math.max(2.4, size),
+      tool: "brush",
+    });
+  }
+  return output;
+}
+
 function getDetailPreset(detail) {
   return DETAIL_PRESETS[detail] ?? DETAIL_PRESETS.standard;
 }
@@ -519,45 +632,75 @@ export function buildOutlineSegments(pixelBuffer, options = {}) {
 
   const preset = getDetailPreset(options.detail);
   const luminance = new Float32Array(width * height);
+  const redOpponent = new Float32Array(width * height);
+  const blueOpponent = new Float32Array(width * height);
   const visibleLuminance = [];
+  const visibleRedOpponent = [];
+  const visibleBlueOpponent = [];
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const index = y * width + x;
       const pixelIndex = index * 4;
-      const value =
-        data[pixelIndex] * 0.2126 +
-        data[pixelIndex + 1] * 0.7152 +
-        data[pixelIndex + 2] * 0.0722;
+      const red = data[pixelIndex];
+      const green = data[pixelIndex + 1];
+      const blue = data[pixelIndex + 2];
+      const value = red * 0.2126 + green * 0.7152 + blue * 0.0722;
       luminance[index] = value;
+      redOpponent[index] = red - (green + blue) / 2;
+      blueOpponent[index] = blue - (red + green) / 2;
       if (
         data[pixelIndex + 3] > 32 &&
         insideArtMask(x, y, width, height, options.mask)
       ) {
         visibleLuminance.push(value);
+        visibleRedOpponent.push(redOpponent[index]);
+        visibleBlueOpponent.push(blueOpponent[index]);
       }
     }
   }
 
-  const darkPoint = percentile(visibleLuminance, 0.08);
-  const lightPoint = percentile(visibleLuminance, 0.92);
-  const contrastRange = Math.max(24, lightPoint - darkPoint);
-  for (let index = 0; index < luminance.length; index += 1) {
-    luminance[index] = clamp((luminance[index] - darkPoint) * 255 / contrastRange, 0, 255);
-  }
-
-  const smoothed = blur(luminance, width, height);
-  const { gradientsX, gradientsY, magnitudes } = sobel(smoothed, width, height);
+  const normalizedLuminance = normalizeChannel(
+    luminance,
+    visibleLuminance,
+    24,
+  );
+  const normalizedRed = normalizeChannel(
+    redOpponent,
+    visibleRedOpponent,
+    52,
+    10,
+  );
+  const normalizedBlue = normalizeChannel(
+    blueOpponent,
+    visibleBlueOpponent,
+    52,
+    10,
+  );
+  const fineLuminance = blur(normalizedLuminance.values, width, height);
+  const coarseLuminance = blur(blur(fineLuminance, width, height), width, height);
+  const gradientField = mergeGradientFields([
+    { ...sobel(fineLuminance, width, height), weight: 1 },
+    { ...sobel(coarseLuminance, width, height), weight: 1.35 },
+    {
+      ...sobel(blur(normalizedRed.values, width, height), width, height),
+      weight: 0.72,
+    },
+    {
+      ...sobel(blur(normalizedBlue.values, width, height), width, height),
+      weight: 0.72,
+    },
+  ]);
   const suppressed = suppressNonMaximum(
-    magnitudes,
-    gradientsX,
-    gradientsY,
+    gradientField.magnitudes,
+    gradientField.gradientsX,
+    gradientField.gradientsY,
     width,
     height,
     options.mask,
   );
   const edgeStrengths = [...suppressed].filter((value) => value > 0);
   const highThreshold = Math.max(
-    70,
+    preset.minimumHighThreshold,
     percentile(edgeStrengths, preset.highQuantile),
   );
   const connected = connectWeakEdges(
@@ -567,17 +710,39 @@ export function buildOutlineSegments(pixelBuffer, options = {}) {
     highThreshold,
     highThreshold * preset.lowThresholdRatio,
   );
-  const accepted = removeSmallComponents(
+  const bridged = bridgeEdgeGaps(
     connected,
+    gradientField.magnitudes,
+    width,
+    height,
+    highThreshold * preset.lowThresholdRatio * 0.42,
+  );
+  const accepted = removeSmallComponents(
+    bridged,
     width,
     height,
     preset.minComponentSize,
   );
   const canvasAspect = Math.max(0.5, Number(options.canvasAspect) || 4 / 3);
   const maximum = Math.max(1, Number(options.maxSegments) || preset.maxSegments);
-  const paths = traceEdgePaths(accepted, suppressed, width, height, preset);
+  const paths = traceEdgePaths(
+    accepted,
+    gradientField.magnitudes,
+    width,
+    height,
+    preset,
+  );
   const bounds = drawingBounds(width, height, canvasAspect);
-  const segments = [];
+  const segments = options.includeFrame === false
+    ? []
+    : ellipseFrameSegments(
+      data,
+      width,
+      height,
+      bounds,
+      options.colorMode,
+      preset.brushSize,
+    ).slice(0, maximum);
   const maximumPerPath = Math.max(12, Math.floor(maximum * 0.24));
   for (const path of paths) {
     if (segments.length >= maximum) break;
@@ -604,7 +769,7 @@ export function buildOutlineSegments(pixelBuffer, options = {}) {
 
   return {
     segments,
-    contrast: Math.round(lightPoint - darkPoint),
+    contrast: Math.round(normalizedLuminance.observedRange),
     paths: paths.length,
     threshold: Math.round(highThreshold),
   };
@@ -616,6 +781,7 @@ export function buildSandShadingSegments(pixelBuffer, options = {}) {
     throw new Error("插画像素数据无效");
   }
   const luminance = new Float32Array(width * height);
+  const saturation = new Float32Array(width * height);
   const visible = [];
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -625,6 +791,9 @@ export function buildSandShadingSegments(pixelBuffer, options = {}) {
         data[pixel] * 0.2126 +
         data[pixel + 1] * 0.7152 +
         data[pixel + 2] * 0.0722;
+      saturation[index] =
+        Math.max(data[pixel], data[pixel + 1], data[pixel + 2]) -
+        Math.min(data[pixel], data[pixel + 1], data[pixel + 2]);
       if (data[pixel + 3] > 32 && insideArtMask(x, y, width, height, options.mask)) {
         visible.push(luminance[index]);
       }
@@ -633,15 +802,17 @@ export function buildSandShadingSegments(pixelBuffer, options = {}) {
   const darkPoint = percentile(visible, 0.08);
   const lightPoint = percentile(visible, 0.92);
   const range = Math.max(24, lightPoint - darkPoint);
-  const rowStep = Math.max(4, Number(options.rowStep) || 6);
+  const rowStep = Math.max(4, Number(options.rowStep) || 5);
   const runs = [];
   for (let y = Math.floor(rowStep / 2); y < height; y += rowStep) {
     let start = -1;
     let darkness = 0;
+    let runColor = null;
     const closeRun = (end) => {
-      if (start < 0 || end - start < 5) {
+      if (start < 0 || end - start < 4) {
         start = -1;
         darkness = 0;
+        runColor = null;
         return;
       }
       const averageDarkness = darkness / (end - start);
@@ -649,6 +820,7 @@ export function buildSandShadingSegments(pixelBuffer, options = {}) {
       const centerY = y / height;
       const centrality = 1.15 - Math.min(0.35, Math.hypot(centerX - 0.5, centerY - 0.5) * 0.5);
       runs.push({
+        color: runColor,
         darkness: averageDarkness,
         end,
         score: (end - start) * averageDarkness * centrality,
@@ -657,18 +829,32 @@ export function buildSandShadingSegments(pixelBuffer, options = {}) {
       });
       start = -1;
       darkness = 0;
+      runColor = null;
     };
     for (let x = 0; x <= width; x += 1) {
       const index = y * width + Math.min(x, width - 1);
       const normalized = x < width
         ? clamp((luminance[index] - darkPoint) / range, 0, 1)
         : 1;
-      const darkEnough =
+      const paintable =
         x < width &&
-        normalized < 0.38 &&
+        (normalized < 0.6 || saturation[index] > 46) &&
         insideArtMask(x, y, width, height, options.mask);
-      if (darkEnough) {
-        if (start < 0) start = x;
+      if (paintable) {
+        const pixel = index * 4;
+        const color = quantizeDrawingColor(
+          data[pixel],
+          data[pixel + 1],
+          data[pixel + 2],
+          options.colorMode,
+        );
+        const colorChanged = runColor !== null && color !== runColor;
+        const runTooLong = start >= 0 && x - start >= width * 0.24;
+        if ((colorChanged || runTooLong) && x - start >= 4) closeRun(x);
+        if (start < 0) {
+          start = x;
+          runColor = color;
+        }
         darkness += 1 - normalized;
       } else {
         closeRun(x);
@@ -696,7 +882,7 @@ export function buildSandShadingSegments(pixelBuffer, options = {}) {
     if (points.at(-1) % width !== run.end - 1) {
       points.push(run.y * width + run.end - 1);
     }
-    const color = drawingColor(data, points, options.colorMode);
+    const color = run.color ?? drawingColor(data, points, options.colorMode);
     for (let index = 1; index < points.length && segments.length < maximum; index += 1) {
       const start = mapDrawingPoint(points[index - 1], width, height, bounds);
       const end = mapDrawingPoint(points[index], width, height, bounds);
@@ -706,12 +892,31 @@ export function buildSandShadingSegments(pixelBuffer, options = {}) {
         x1: end.x,
         y1: end.y,
         color,
-        size: 1.35,
+        size: 2.8,
         tool: "brush",
       });
     }
   }
   return segments;
+}
+
+export function buildAssistedDrawing(pixelBuffer, options = {}) {
+  const outlineResult = buildOutlineSegments(pixelBuffer, {
+    ...options,
+    maxSegments: options.maxOutlineSegments ?? options.maxSegments,
+  });
+  const coloring = buildSandShadingSegments(pixelBuffer, {
+    ...options,
+    maxSegments: options.maxColoringSegments ?? options.maxShadingSegments ?? 170,
+    rowStep: options.coloringRowStep ?? options.shadingRowStep ?? 5,
+  });
+  return {
+    ...outlineResult,
+    outline: outlineResult.segments,
+    coloring,
+    shading: coloring,
+    segments: [...outlineResult.segments, ...coloring],
+  };
 }
 
 export async function extractCardOutline(imageUrl, options = {}) {
@@ -750,8 +955,8 @@ export async function extractCardOutline(imageUrl, options = {}) {
     canvas.width,
     canvas.height,
   );
-  return buildOutlineSegments(
+  return buildAssistedDrawing(
     context.getImageData(0, 0, canvas.width, canvas.height),
-    { ...options, mask: layout.mask },
+    { colorMode: "sampled", ...options, mask: layout.mask },
   );
 }

@@ -1795,6 +1795,50 @@ textarea:focus {
 
 .canvas-frame.can-draw canvas { cursor: crosshair; }
 
+.final-card-reveal {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 244, 204, 0.3), transparent 62%);
+  animation: final-card-haze 5s ease-out both;
+}
+
+.final-card-reveal span {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  padding: 6px 12px;
+  border: 1px solid rgba(188, 137, 55, 0.75);
+  border-radius: 999px;
+  color: #57361f;
+  background: rgba(255, 239, 195, 0.9);
+  box-shadow: 0 4px 15px rgba(80, 47, 22, 0.16);
+  font-size: 0.72rem;
+  font-weight: 900;
+  transform: translateX(-50%);
+}
+
+.final-card-reveal img {
+  width: auto;
+  height: min(88%, 580px);
+  filter: drop-shadow(0 12px 20px rgba(54, 31, 16, 0.28));
+  animation: final-card-materialize 5s ease-out both;
+}
+
+@keyframes final-card-haze {
+  0% { background-color: rgba(255, 247, 219, 0); }
+  100% { background-color: rgba(255, 247, 219, 0.38); }
+}
+
+@keyframes final-card-materialize {
+  0% { opacity: 0.06; filter: blur(12px) saturate(0.55); transform: scale(0.92); }
+  45% { opacity: 0.38; filter: blur(5px) saturate(0.8); }
+  100% { opacity: 0.9; filter: blur(0) saturate(1); transform: scale(1); }
+}
+
 .canvas-overlay {
   position: absolute;
   inset: 0;

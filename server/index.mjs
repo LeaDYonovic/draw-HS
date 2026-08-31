@@ -160,6 +160,10 @@ const ROUND_BREAK_MS = ROUND_BREAK_OVERRIDE_MS > 0
   : 5_000;
 const RECONNECT_GRACE_MS = 15_000;
 const ROUND_TIME_OVERRIDE_MS = Number(process.env.ROUND_TIME_OVERRIDE_MS);
+const FINAL_REVEAL_OVERRIDE_MS = Number(process.env.FINAL_REVEAL_OVERRIDE_MS);
+const FINAL_REVEAL_LEAD_MS = FINAL_REVEAL_OVERRIDE_MS > 0
+  ? Math.max(100, FINAL_REVEAL_OVERRIDE_MS)
+  : 5_000;
 const CHAT_COOLDOWN_MS = 450;
 const MAX_SPECTATORS = 20;
 const MAX_ROOMS = Math.max(10, Number(process.env.MAX_ROOMS) || 100);
@@ -1072,6 +1076,10 @@ function publicState(room, viewerId) {
             room.phase === "drawing" && isDrawer
               ? cardPreview(selectedWord)
               : null,
+          finalRevealCard:
+            room.phase === "drawing" && current.finalCardVisible
+              ? cardPreview(selectedWord)
+              : null,
           answerCard:
             room.phase === "roundEnd" || room.phase === "gameOver"
               ? cardPreview(selectedWord)
@@ -1234,6 +1242,7 @@ function beginTurn(room) {
     endsAt: now + chooseDurationMs,
     resultReason: null,
     hintStage: 0,
+    finalCardVisible: false,
   };
   io.to(room.code).emit("canvas_event", { type: "clear" });
   addSystemMessage(
@@ -1351,8 +1360,8 @@ async function loadBotDrawing(card) {
       throw new Error("AI 卡图文件大小异常");
     }
     return buildBotDrawingFromPng(image, card, {
-      maxOutlineSegments: 360,
-      maxShadingSegments: 90,
+      maxOutlineSegments: 600,
+      maxColoringSegments: 170,
     });
   });
 
@@ -1400,7 +1409,7 @@ function scheduleBotDrawing(room) {
       if (!activeBotDrawingRound(room, roundStartedAt)) return;
       drawingStarted = true;
       clearTimeout(fallbackTimer);
-      const outlineBatchSize = 6;
+      const outlineBatchSize = 8;
       const outlineIntervalMs = Math.max(55, Math.min(160, durationMs * 0.0025));
       queueBotSegments(room, roundStartedAt, outline, {
         batchSize: outlineBatchSize,
@@ -1441,6 +1450,21 @@ function revealHintStage(room, roundStartedAt, stage) {
   emitState(room);
 }
 
+function revealFinalCard(room, roundStartedAt) {
+  const current = room.current;
+  if (
+    room.phase !== "drawing" ||
+    !current ||
+    current.startedAt !== roundStartedAt ||
+    current.finalCardVisible
+  ) {
+    return;
+  }
+  current.finalCardVisible = true;
+  addSystemMessage(room, "最后 5 秒：原卡图正在画板上渐显，本阶段仍可修改答案。");
+  emitState(room);
+}
+
 function startDrawing(room, word) {
   if (room.phase !== "choosing" || !room.current) return;
   if (!room.current.options.includes(word)) word = room.current.options[0];
@@ -1462,6 +1486,7 @@ function startDrawing(room, word) {
   room.current.answers.clear();
   room.current.correctPlayers.clear();
   room.current.hintStage = 0;
+  room.current.finalCardVisible = false;
   room.current.startedAt = now;
   const durationMs = roundDurationMs(room);
   room.current.endsAt = now + durationMs;
@@ -1472,7 +1497,7 @@ function startDrawing(room, word) {
     `${room.players.get(room.current.drawerId)?.name} 开始作画！本轮为${room.current.questionType === "choice" ? "选择题" : "搜索题"}。`,
   );
   if (room.players.get(room.current.drawerId)?.isBot) {
-    addSystemMessage(room, "AI 正在先勾主体轮廓，再逐步补充色彩和暗部，请根据画面和线索答题。");
+    addSystemMessage(room, "AI 正在先画卡面椭圆和主体彩色轮廓，再逐步铺色与补充暗部。");
   }
   emitState(room);
   scheduleBotAnswers(room);
@@ -1487,6 +1512,12 @@ function startDrawing(room, word) {
       Math.round(durationMs * 0.7),
     ),
   ];
+  if (durationMs > FINAL_REVEAL_LEAD_MS) {
+    room.hintTimers.push(setTimeout(
+      () => revealFinalCard(room, now),
+      durationMs - FINAL_REVEAL_LEAD_MS,
+    ));
+  }
   room.timer = setTimeout(
     () => finishTurn(room, "timeout"),
     durationMs,

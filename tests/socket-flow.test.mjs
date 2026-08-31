@@ -88,6 +88,7 @@ async function startRound(t, answerMode, settings = {}) {
       ...process.env,
       PORT: String(port),
       ROUND_TIME_OVERRIDE_MS: "1000",
+      FINAL_REVEAL_OVERRIDE_MS: "200",
     },
     stdio: "pipe",
   });
@@ -153,6 +154,7 @@ async function startRound(t, answerMode, settings = {}) {
     /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u,
   );
   assert.equal(drawing.round.referenceCard, null);
+  assert.equal(drawing.round.finalRevealCard, null);
   assert.equal(drawing.round.durationMs, 1000);
   assert.equal(drawing.round.clues.stage, 0);
   assert.equal(drawing.round.clues.range, drawing.wordBankName);
@@ -270,6 +272,15 @@ test("an answerer can change a numbered choice before timeout", async (t) => {
   assert.equal(changedChoice.selectedAnswerIndex, correctIndex);
   await guestState.waitFor(
     (state) => state.round.selectedAnswerIndex === correctIndex,
+  );
+
+  const finalReveal = await guestState.waitFor(
+    (state) => state.phase === "drawing" && state.round.finalRevealCard,
+  );
+  assert.equal(finalReveal.round.finalRevealCard.name, answer);
+  assert.match(
+    finalReveal.round.finalRevealCard.imageUrl,
+    /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u,
   );
 
   const ended = await guestState.waitFor((state) => state.phase === "roundEnd");
@@ -516,7 +527,7 @@ test("a solo host can start with an AI player that chooses and answers automatic
   assert.equal(aiDrawing.round.answerOptionCards.length, 10);
   assert.ok(
     aiDrawing.messages.some((message) =>
-      message.text.includes("AI 正在先勾主体轮廓"),
+      message.text.includes("AI 正在先画卡面椭圆"),
     ),
   );
   const aiStroke = await hostCanvasEvent.waitFor(

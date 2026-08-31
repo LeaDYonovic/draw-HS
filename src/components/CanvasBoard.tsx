@@ -16,6 +16,8 @@ const COLORS = [
 
 interface CanvasBoardProps {
   canDraw: boolean;
+  finalRevealImageUrl?: string;
+  finalRevealName?: string;
   onAssistError?: (message: string) => void;
   referenceCardType?: string;
   referenceImageUrl?: string;
@@ -25,6 +27,8 @@ interface CanvasBoardProps {
 
 export function CanvasBoard({
   canDraw,
+  finalRevealImageUrl,
+  finalRevealName,
   onAssistError,
   referenceCardType,
   referenceImageUrl,
@@ -46,7 +50,9 @@ export function CanvasBoard({
   const [assistDetail, setAssistDetail] = useState<
     "simple" | "standard" | "detailed"
   >("standard");
-  const [assistState, setAssistState] = useState<"idle" | "loading" | "done">("idle");
+  const [assistState, setAssistState] = useState<
+    "idle" | "loading" | "outlining" | "coloring" | "done"
+  >("idle");
   canDrawRef.current = canDraw;
   roundKeyRef.current = roundKey;
 
@@ -240,24 +246,31 @@ export function CanvasBoard({
       ) {
         return;
       }
-      if (result.segments.length < 20) {
+      if (result.outline.length < 20) {
         throw new Error("这张卡牌没有提取到足够清晰的轮廓");
       }
 
-      for (let index = 0; index < result.segments.length; index += 64) {
-        if (
-          run !== assistRunRef.current ||
-          !canDrawRef.current ||
-          roundKeyRef.current !== activeRoundKey
-        ) {
-          return;
+      const drawPhase = async (segments: CanvasSegment[]) => {
+        for (let index = 0; index < segments.length; index += 64) {
+          if (
+            run !== assistRunRef.current ||
+            !canDrawRef.current ||
+            roundKeyRef.current !== activeRoundKey
+          ) {
+            return false;
+          }
+          const batch = segments.slice(index, index + 64);
+          historyRef.current.push(...batch);
+          batch.forEach(paintSegment);
+          emitSegments(batch);
+          await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
         }
-        const batch = result.segments.slice(index, index + 64);
-        historyRef.current.push(...batch);
-        batch.forEach(paintSegment);
-        emitSegments(batch);
-        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-      }
+        return true;
+      };
+      setAssistState("outlining");
+      if (!await drawPhase(result.outline)) return;
+      setAssistState("coloring");
+      if (!await drawPhase(result.coloring)) return;
       setAssistState("done");
     } catch (error) {
       if (run !== assistRunRef.current) return;
@@ -324,14 +337,18 @@ export function CanvasBoard({
                 className={`tool-button assist ${assistState === "done" ? "active" : ""}`}
                 disabled={assistState !== "idle"}
                 onClick={addOutlineAssist}
-                title="分析卡牌类型对应的插画区域并生成简化轮廓"
+                title="使用与 AI 相同的算法先勾彩色轮廓，再自动铺色"
                 type="button"
               >
                 {assistState === "loading"
                   ? "分析中"
-                  : assistState === "done"
-                    ? "已添加"
-                    : "轮廓辅助"}
+                  : assistState === "outlining"
+                    ? "勾轮廓"
+                    : assistState === "coloring"
+                      ? "铺色中"
+                      : assistState === "done"
+                        ? "已完成"
+                        : "辅助作画"}
               </button>
             </div>
           )}
@@ -350,6 +367,12 @@ export function CanvasBoard({
           onPointerUp={stopDrawing}
           ref={canvasRef}
         />
+        {finalRevealImageUrl && (
+          <div className="final-card-reveal" aria-live="polite">
+            <span>最后 5 秒 · 原卡图渐显</span>
+            <img alt={finalRevealName || "本轮原卡图"} src={finalRevealImageUrl} />
+          </div>
+        )}
         {overlay && <div className="canvas-overlay">{overlay}</div>}
       </div>
     </section>

@@ -958,6 +958,8 @@ function GameRoom({
             )}
             <CanvasBoard
               canDraw={room.phase === "drawing" && room.isDrawer}
+              finalRevealImageUrl={round?.finalRevealCard?.imageUrl}
+              finalRevealName={round?.finalRevealCard?.name}
               onAssistError={onError}
               overlay={overlay}
               referenceCardType={round?.referenceCard?.type}
