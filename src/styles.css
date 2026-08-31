@@ -2033,9 +2033,12 @@ textarea:focus {
   box-shadow: 0 1px 2px rgba(77, 48, 24, 0.22);
 }
 
-.card-sticker.cost { top: 7%; left: 1%; width: 19%; height: 14%; transform: rotate(-4deg); }
-.card-sticker.attack { bottom: 7%; left: 2%; width: 19%; height: 14%; transform: rotate(3deg); }
-.card-sticker.health { right: 2%; bottom: 7%; width: 19%; height: 14%; transform: rotate(-3deg); }
+.card-sticker.cost { top: 14%; left: 11%; width: 17%; height: 13%; transform: rotate(-3deg); }
+.card-sticker.attack { bottom: 13%; left: 11%; width: 17%; height: 13%; transform: rotate(2deg); }
+.card-sticker.health { right: 11%; bottom: 13%; width: 17%; height: 13%; transform: rotate(-2deg); }
+.card-sticker.cost,
+.card-sticker.attack,
+.card-sticker.health { z-index: 4; }
 .card-sticker.artwork {
   z-index: 2;
   min-width: 0;
@@ -2070,10 +2073,10 @@ textarea:focus {
   transform: rotate(-0.7deg);
 }
 .card-sticker.description {
-  top: 64%;
-  left: 22%;
-  width: 56%;
-  height: 16%;
+  top: 60%;
+  left: 18%;
+  width: 64%;
+  height: 18%;
   transform: rotate(0.7deg);
 }
 .card-sticker.opened {
