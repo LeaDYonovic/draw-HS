@@ -2472,10 +2472,15 @@ textarea:focus {
   overflow-wrap: anywhere;
 }
 
-.answer-option-copy > small {
+.answer-option-details {
+  display: grid;
+  gap: 2px;
+}
+
+.answer-option-details small {
   color: #7fa29f;
   font-size: 0.52rem;
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 .answer-option-visual {
@@ -2485,34 +2490,37 @@ textarea:focus {
 }
 
 .answering-layout .answer-grid {
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
   gap: 8px;
 }
 
 .answering-layout .answer-grid button {
-  min-height: 108px;
-  padding: 7px 10px 7px 7px;
-  grid-template-columns: 29px 72px minmax(0, 1fr);
-  gap: 8px;
+  min-height: 150px;
+  padding: 9px 12px 9px 8px;
+  grid-template-columns: 32px 104px minmax(0, 1fr);
+  gap: 10px;
 }
 
 .answering-layout .answer-grid button > span {
-  width: 29px;
-  height: 35px;
-  font-size: 0.75rem;
+  width: 32px;
+  height: 39px;
+  font-size: 0.8rem;
 }
 
 .answering-layout .answer-option-visual {
-  width: 72px;
+  width: 104px;
   transition: filter 160ms ease, transform 160ms ease;
 }
 
 .answering-layout .answer-grid button.selected .answer-option-visual {
   filter: drop-shadow(0 7px 8px rgba(0, 0, 0, 0.42)) saturate(1.12);
-  transform: scale(1.08);
+  transform: scale(1.05);
 }
 
-.answering-layout .answer-option-copy > strong { font-size: 0.82rem; }
-.answering-layout .answer-option-copy > small { font-size: 0.57rem; }
+.answering-layout .answer-option-copy { gap: 6px; }
+.answering-layout .answer-option-copy > strong { font-size: 0.88rem; }
+.answering-layout .answer-option-details { gap: 3px; }
+.answering-layout .answer-option-details small { font-size: 0.64rem; }
 
 .answer-grid button:hover {
   border-color: rgba(96, 190, 196, 0.58);
@@ -3092,9 +3100,9 @@ textarea:focus {
 
   .answer-grid button > span { font-size: 0.8rem; }
   .answer-option-copy > strong { font-size: 0.86rem; }
-  .answer-option-copy > small { font-size: 0.66rem; }
-  .answering-layout .answer-option-copy > strong { font-size: 0.94rem; }
-  .answering-layout .answer-option-copy > small { font-size: 0.68rem; }
+  .answer-option-details small { font-size: 0.66rem; }
+  .answering-layout .answer-option-copy > strong { font-size: 1rem; }
+  .answering-layout .answer-option-details small { font-size: 0.72rem; }
 }
 
 @media (max-width: 960px) {
@@ -3301,10 +3309,10 @@ textarea:focus {
   .settlement-card-visual { width: 124px; }
   .answering-layout .answer-grid { grid-template-columns: 1fr; }
   .answering-layout .answer-grid button {
-    min-height: 96px;
-    grid-template-columns: 29px 62px minmax(0, 1fr);
+    min-height: 116px;
+    grid-template-columns: 29px 76px minmax(0, 1fr);
   }
-  .answering-layout .answer-option-visual { width: 62px; }
+  .answering-layout .answer-option-visual { width: 76px; }
   .canvas-frame { min-height: 300px; }
 }
 

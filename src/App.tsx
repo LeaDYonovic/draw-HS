@@ -1261,16 +1261,19 @@ const EMPTY_SEARCH_FILTERS: SearchFilters = {
   armor: "",
 };
 
-function formatCardSearchSummary(card: CardPreview) {
-  const details = [`字数 ${card.wordLength}`, `费用 ${card.cost ?? "-"}`];
+function formatCardSearchRows(card: CardPreview) {
+  const rows = [`字数 ${card.wordLength} · ${CARD_TYPE_LABELS[card.type] ?? "卡牌"}`];
   if (card.type === "MINION") {
-    details.push(`攻击 ${card.attack ?? "-"}`, `生命 ${card.health ?? "-"}`);
+    rows.push(`费用 ${card.cost ?? "-"} · 攻击 ${card.attack ?? "-"}`);
+    rows.push(`生命 ${card.health ?? "-"}`);
   } else if (card.type === "HERO") {
-    details.push(`护甲 ${card.armor ?? "-"}`);
+    rows.push(`费用 ${card.cost ?? "-"} · 护甲 ${card.armor ?? "-"}`);
   } else if (card.type === "WEAPON" || card.type === "LOCATION") {
-    details.push(`耐久 ${card.health ?? "-"}`);
+    rows.push(`费用 ${card.cost ?? "-"} · 耐久 ${card.health ?? "-"}`);
+  } else {
+    rows.push(`费用 ${card.cost ?? "-"}`);
   }
-  return details.join(" · ");
+  return rows;
 }
 
 function matchesChoiceSearch(card: CardPreview, filters: SearchFilters) {
@@ -1459,7 +1462,9 @@ function ChoiceAnswerPanel({
               <CardImage card={card} className="answer-option-visual" loading="eager" />
               <div className="answer-option-copy">
                 <strong>{card.name}</strong>
-                <small>{formatCardSearchSummary(card)}</small>
+                <div className="answer-option-details">
+                  {formatCardSearchRows(card).map((row) => <small key={row}>{row}</small>)}
+                </div>
               </div>
             </button>
           );
