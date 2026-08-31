@@ -122,7 +122,6 @@ export interface RoundState {
   optionCards: CardPreview[];
   referenceCard: CardPreview | null;
   clueCard: ClueCardPreview | null;
-  finalRevealCard: CardPreview | null;
   answerCard: CardPreview | null;
   answerOptions: string[];
   answerOptionCards: CardPreview[];

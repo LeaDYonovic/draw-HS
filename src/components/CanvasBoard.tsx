@@ -20,8 +20,6 @@ const COLORS = [
 
 interface CanvasBoardProps {
   canDraw: boolean;
-  finalRevealImageUrl?: string;
-  finalRevealName?: string;
   onAssistError?: (message: string) => void;
   referenceCardType?: string;
   referenceImageUrl?: string;
@@ -33,8 +31,6 @@ interface CanvasBoardProps {
 
 export function CanvasBoard({
   canDraw,
-  finalRevealImageUrl,
-  finalRevealName,
   onAssistError,
   referenceCardType,
   referenceImageUrl,
@@ -408,12 +404,6 @@ export function CanvasBoard({
           onPointerUp={stopDrawing}
           ref={canvasRef}
         />
-        {finalRevealImageUrl && (
-          <div className="final-card-reveal" aria-live="polite">
-            <span>最后 5 秒 · 原卡图渐显</span>
-            <img alt={finalRevealName || "本轮原卡图"} src={finalRevealImageUrl} />
-          </div>
-        )}
         {overlay && <div className="canvas-overlay">{overlay}</div>}
       </div>
     </section>

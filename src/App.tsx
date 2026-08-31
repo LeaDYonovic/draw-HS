@@ -941,22 +941,11 @@ function GameRoom({
               </div>
             </div>
           )}
-          {room.phase === "roundEnd" && (
-            <div className="answer-reveal">
-              <span>
-                {room.isDrawer
-                  ? "本轮揭晓"
-                  : self?.answeredCorrectly
-                    ? "你的选择正确"
-                    : "本轮正确答案"}
-              </span>
-              {round?.answerCard && (
-                <CardImage card={round.answerCard} className="revealed-card-visual" loading="eager" />
-              )}
-              <strong>{round?.word}</strong>
-            </div>
-          )}
-          <div className={round?.referenceCard || round?.clueCard ? "drawer-workspace with-reference" : "drawer-workspace"}>
+          <div
+            className={`drawer-workspace ${
+              round?.referenceCard || round?.clueCard || round?.answerCard ? "with-reference" : ""
+            } ${room.phase === "roundEnd" ? "settlement-workspace" : ""}`.trim()}
+          >
             {room.phase === "drawing" && room.isDrawer && round?.referenceCard && (
               <aside className="drawer-reference" aria-label="作画参考卡牌">
                 <div className="drawer-reference-heading">
@@ -977,10 +966,29 @@ function GameRoom({
             {room.phase === "drawing" && !room.isDrawer && round?.clueCard && round.clues && (
               <ClueCardReveal card={round.clueCard} stage={round.clues.stage} />
             )}
+            {room.phase === "roundEnd" && round?.answerCard && (
+              <aside className="drawer-reference settlement-card-reference" aria-label="本轮正确答案">
+                <div className="drawer-reference-heading">
+                  <span>本轮揭晓</span>
+                  <small>
+                    {room.isDrawer
+                      ? "完整卡面"
+                      : self?.answeredCorrectly
+                        ? "选择正确"
+                        : "正确答案"}
+                  </small>
+                </div>
+                <CardImage
+                  card={round.answerCard}
+                  className="drawer-reference-visual settlement-card-visual"
+                  loading="eager"
+                />
+                <strong>{round.answerCard.name}</strong>
+                <p>贴纸已全部移除，可对照完整卡面与本轮画作。</p>
+              </aside>
+            )}
             <CanvasBoard
               canDraw={room.phase === "drawing" && room.isDrawer}
-              finalRevealImageUrl={round?.finalRevealCard?.imageUrl}
-              finalRevealName={round?.finalRevealCard?.name}
               onAssistError={onError}
               overlay={overlay}
               referenceCardType={round?.referenceCard?.type}

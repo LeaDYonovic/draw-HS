@@ -1690,6 +1690,23 @@ textarea:focus {
     linear-gradient(165deg, rgba(22, 62, 68, 0.98), rgba(7, 30, 37, 0.99));
 }
 
+.drawer-workspace.with-reference.settlement-workspace {
+  grid-template-columns: 272px minmax(0, 1fr);
+}
+
+.settlement-card-reference {
+  border-color: rgba(241, 198, 103, 0.58);
+  background:
+    radial-gradient(circle at 50% 24%, rgba(91, 176, 168, 0.34), transparent 38%),
+    linear-gradient(165deg, rgba(29, 75, 76, 0.98), rgba(9, 35, 40, 0.99));
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 245, 205, 0.1);
+}
+
+.settlement-card-visual {
+  width: min(100%, 244px);
+  margin-block: 8px 5px;
+}
+
 .clue-card-stage {
   position: relative;
   width: min(100%, 204px);
@@ -1944,50 +1961,6 @@ textarea:focus {
 
 .canvas-frame.can-draw canvas { cursor: crosshair; }
 
-.final-card-reveal {
-  position: absolute;
-  z-index: 4;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  background: radial-gradient(circle, rgba(255, 244, 204, 0.3), transparent 62%);
-  animation: final-card-haze 5s ease-out both;
-}
-
-.final-card-reveal span {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  padding: 6px 12px;
-  border: 1px solid rgba(188, 137, 55, 0.75);
-  border-radius: 999px;
-  color: #57361f;
-  background: rgba(255, 239, 195, 0.9);
-  box-shadow: 0 4px 15px rgba(80, 47, 22, 0.16);
-  font-size: 0.72rem;
-  font-weight: 900;
-  transform: translateX(-50%);
-}
-
-.final-card-reveal img {
-  width: auto;
-  height: min(88%, 580px);
-  filter: drop-shadow(0 12px 20px rgba(54, 31, 16, 0.28));
-  animation: final-card-materialize 5s ease-out both;
-}
-
-@keyframes final-card-haze {
-  0% { background-color: rgba(255, 247, 219, 0); }
-  100% { background-color: rgba(255, 247, 219, 0.38); }
-}
-
-@keyframes final-card-materialize {
-  0% { opacity: 0.06; filter: blur(12px) saturate(0.55); transform: scale(0.92); }
-  45% { opacity: 0.38; filter: blur(5px) saturate(0.8); }
-  100% { opacity: 0.9; filter: blur(0) saturate(1); transform: scale(1); }
-}
-
 .canvas-overlay {
   position: absolute;
   inset: 0;
@@ -2000,8 +1973,7 @@ textarea:focus {
   backdrop-filter: blur(2px);
 }
 
-.word-picker,
-.answer-reveal {
+.word-picker {
   position: absolute;
   z-index: 8;
   left: 50%;
@@ -2019,8 +1991,7 @@ textarea:focus {
 
 .word-picker { width: min(760px, calc(100% - 32px)); }
 
-.word-picker > span,
-.answer-reveal > span {
+.word-picker > span {
   color: #806c4d;
   font-size: 0.78rem;
 }
@@ -2058,18 +2029,6 @@ textarea:focus {
 
 .word-picker button:hover { transform: translateY(-2px) rotate(-0.5deg); filter: brightness(1.08); }
 
-.answer-reveal {
-  width: min(430px, calc(100% - 40px));
-  padding-block: 18px;
-}
-
-.answer-reveal strong {
-  margin-top: 3px;
-  display: block;
-  color: #a13f2d;
-  font-size: 2rem;
-}
-
 .card-visual {
   position: relative;
   overflow: hidden;
@@ -2086,12 +2045,6 @@ textarea:focus {
 .picker-card-visual {
   width: min(100%, 158px);
   filter: drop-shadow(0 7px 6px rgba(0, 0, 0, 0.34));
-}
-
-.revealed-card-visual {
-  width: 154px;
-  margin: 7px auto 0;
-  filter: drop-shadow(0 9px 8px rgba(61, 35, 17, 0.28));
 }
 
 .card-image-fallback {
@@ -2899,9 +2852,11 @@ textarea:focus {
   .spectator-join-bar > div { grid-template-columns: 1fr; }
   .spectator-join-bar span { grid-row: auto; }
   .drawer-workspace.with-reference { grid-template-columns: 190px minmax(0, 1fr); }
+  .drawer-workspace.with-reference.settlement-workspace { grid-template-columns: 218px minmax(0, 1fr); }
   .drawer-reference { padding-inline: 8px; }
   .drawer-reference-visual,
   .clue-card-stage { width: min(100%, 158px); }
+  .settlement-card-visual { width: min(100%, 194px); }
   .canvas-frame { height: min(64vh, 520px); min-height: 340px; }
   .chat-panel { height: 330px; }
   .answer-panel { height: min(62vh, 540px); min-height: 420px; }
@@ -2915,10 +2870,6 @@ textarea:focus {
   .word-picker > div { gap: 5px; }
   .word-picker button { min-height: 190px; padding: 5px 3px 8px; }
   .word-picker button > strong { font-size: 0.66rem; }
-  .answer-reveal { padding: 13px; }
-  .revealed-card-visual { width: 126px; }
-  .answer-reveal strong { font-size: 1.4rem; }
-
   .result-page { padding-top: 23px; }
   .result-card { margin-top: 58px; padding-inline: 16px; }
   .podium-row { grid-template-columns: 26px 39px 1fr auto; gap: 8px; padding-inline: 8px; }
@@ -2939,7 +2890,8 @@ textarea:focus {
   .word-status strong { font-size: 0.95rem; }
   .spectator-join-bar { flex-direction: column; gap: 9px; }
   .spectator-join-bar button { width: 100%; }
-  .drawer-workspace.with-reference { grid-template-columns: 1fr; }
+  .drawer-workspace.with-reference,
+  .drawer-workspace.with-reference.settlement-workspace { grid-template-columns: 1fr; }
   .drawer-reference {
     display: grid;
     grid-template-columns: 84px minmax(0, 1fr);
@@ -2962,6 +2914,8 @@ textarea:focus {
   }
   .clue-card-reference > strong { grid-column: 2; }
   .clue-card-reference > p { grid-column: 2; }
+  .settlement-card-reference { grid-template-columns: 124px minmax(0, 1fr); }
+  .settlement-card-visual { width: 124px; }
   .canvas-frame { min-height: 300px; }
 }
 

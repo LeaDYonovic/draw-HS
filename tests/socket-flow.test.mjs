@@ -88,7 +88,6 @@ async function startRound(t, answerMode = "choice", settings = {}, runtime = {})
       ...process.env,
       PORT: String(port),
       ROUND_TIME_OVERRIDE_MS: String(runtime.roundTimeMs ?? 1_000),
-      FINAL_REVEAL_OVERRIDE_MS: String(runtime.finalRevealMs ?? 200),
     },
     stdio: "pipe",
   });
@@ -160,7 +159,6 @@ async function startRound(t, answerMode = "choice", settings = {}, runtime = {})
     drawing.round.clueCard.imageUrl,
     /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u,
   );
-  assert.equal(drawing.round.finalRevealCard, null);
   assert.equal(drawing.round.durationMs, runtime.roundTimeMs ?? 1_000);
   assert.equal(drawing.round.clues.stage, 0);
   assert.equal(drawing.round.clues.range, drawing.wordBankName);
@@ -313,16 +311,6 @@ test("a wrong choice can be retried after the one-second submit cooldown", async
       state.round.selectedAnswerIndex === correctIndex &&
       state.round.answerSubmittedCorrectly,
   );
-
-  const finalReveal = await hostState.waitFor(
-    (state) => state.phase === "drawing" && state.round.finalRevealCard,
-  );
-  assert.equal(finalReveal.round.finalRevealCard.name, answer);
-  assert.match(
-    finalReveal.round.finalRevealCard.imageUrl,
-    /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u,
-  );
-  assert.equal(guestState.current.round.finalRevealCard, null);
 
   const ended = await guestState.waitFor((state) => state.phase === "roundEnd");
   assert.equal(ended.round.word, answer);
