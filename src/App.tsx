@@ -15,7 +15,9 @@ import type {
 const SESSION_KEY = "hearth-draw-session";
 const NAME_KEY = "hearth-draw-name";
 const PAGE_SCALE_KEY = "hearth-draw-page-scale";
+const FONT_SCALE_KEY = "hearth-draw-font-scale";
 const PAGE_SCALE_STEPS = [80, 90, 100, 110, 120] as const;
+const FONT_SCALE_STEPS = [90, 100, 110, 120, 130] as const;
 const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家从十个候选答案中选择并提交。";
 const CARD_TYPE_LABELS: Record<string, string> = {
   MINION: "随从",
@@ -55,6 +57,12 @@ function readPageScale() {
   return window.innerWidth > 760 && window.innerHeight < 960 ? 90 : 100;
 }
 
+function readFontScale() {
+  const saved = Number(localStorage.getItem(FONT_SCALE_KEY));
+  if (FONT_SCALE_STEPS.includes(saved as (typeof FONT_SCALE_STEPS)[number])) return saved;
+  return 100;
+}
+
 export function App() {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [lobby, setLobby] = useState<LobbyState>({ players: [], rooms: [], messages: [] });
@@ -62,6 +70,7 @@ export function App() {
   const lobbyNameRef = useRef("");
   const [connected, setConnected] = useState(socket.connected);
   const [pageScale, setPageScale] = useState(readPageScale);
+  const [fontScale, setFontScale] = useState(readFontScale);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -129,6 +138,10 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${fontScale}%`;
+  }, [fontScale]);
+
   const showError = (message?: string) => setToast(message || "操作失败，请重试");
 
   const enterLobby = async (name: string) => {
@@ -163,6 +176,12 @@ export function App() {
     if (!PAGE_SCALE_STEPS.includes(nextScale as (typeof PAGE_SCALE_STEPS)[number])) return;
     localStorage.setItem(PAGE_SCALE_KEY, String(nextScale));
     setPageScale(nextScale);
+  };
+
+  const changeFontScale = (nextScale: number) => {
+    if (!FONT_SCALE_STEPS.includes(nextScale as (typeof FONT_SCALE_STEPS)[number])) return;
+    localStorage.setItem(FONT_SCALE_KEY, String(nextScale));
+    setFontScale(nextScale);
   };
 
   const scale = pageScale / 100;
@@ -202,37 +221,109 @@ export function App() {
         {!connected && <div className="connection-banner">正在重新连接酒馆...</div>}
         {toast && <div className="toast">{toast}</div>}
       </div>
-      <PageScaleControl onChange={changePageScale} scale={pageScale} />
+      <DisplaySettings
+        fontScale={fontScale}
+        onFontScaleChange={changeFontScale}
+        onPageScaleChange={changePageScale}
+        pageScale={pageScale}
+      />
     </main>
   );
 }
 
-function PageScaleControl({ onChange, scale }: { onChange: (scale: number) => void; scale: number }) {
-  const index = PAGE_SCALE_STEPS.indexOf(scale as (typeof PAGE_SCALE_STEPS)[number]);
+function DisplaySettings({
+  fontScale,
+  onFontScaleChange,
+  onPageScaleChange,
+  pageScale,
+}: {
+  fontScale: number;
+  onFontScaleChange: (scale: number) => void;
+  onPageScaleChange: (scale: number) => void;
+  pageScale: number;
+}) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
 
   return (
-    <div aria-label="页面缩放" className="page-scale-control" role="group">
+    <div className={`display-settings ${open ? "open" : ""}`}>
       <button
-        aria-label="缩小页面"
-        disabled={index <= 0}
-        onClick={() => onChange(PAGE_SCALE_STEPS[index - 1])}
-        title="缩小页面"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        className="display-settings-trigger"
+        onClick={() => setOpen((current) => !current)}
         type="button"
       >
-        −
+        <span aria-hidden="true" className="settings-glyph" />
+        显示设置
       </button>
-      <button aria-label={`当前缩放 ${scale}%，点击恢复 100%`} className="page-scale-value" onClick={() => onChange(100)} title="恢复 100%" type="button">
-        {scale}%
-      </button>
-      <button
-        aria-label="放大页面"
-        disabled={index >= PAGE_SCALE_STEPS.length - 1}
-        onClick={() => onChange(PAGE_SCALE_STEPS[index + 1])}
-        title="放大页面"
-        type="button"
-      >
-        +
-      </button>
+      {open && (
+        <section aria-label="显示设置" aria-modal="false" className="display-settings-panel" role="dialog">
+          <header>
+            <div>
+              <strong>显示设置</strong>
+              <small>按你的屏幕调整阅读大小</small>
+            </div>
+            <button aria-label="关闭显示设置" onClick={() => setOpen(false)} type="button">×</button>
+          </header>
+          <SettingsStepper
+            label="字体大小"
+            onChange={onFontScaleChange}
+            steps={FONT_SCALE_STEPS}
+            value={fontScale}
+          />
+          <SettingsStepper
+            label="页面缩放"
+            onChange={onPageScaleChange}
+            steps={PAGE_SCALE_STEPS}
+            value={pageScale}
+          />
+          <button
+            className="display-settings-reset"
+            disabled={fontScale === 100 && pageScale === 100}
+            onClick={() => {
+              onFontScaleChange(100);
+              onPageScaleChange(100);
+            }}
+            type="button"
+          >
+            恢复默认大小
+          </button>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function SettingsStepper({
+  label,
+  onChange,
+  steps,
+  value,
+}: {
+  label: string;
+  onChange: (value: number) => void;
+  steps: readonly number[];
+  value: number;
+}) {
+  const index = steps.indexOf(value);
+
+  return (
+    <div className="settings-stepper">
+      <span>{label}</span>
+      <div aria-label={label} role="group">
+        <button aria-label={`减小${label}`} disabled={index <= 0} onClick={() => onChange(steps[index - 1])} type="button">−</button>
+        <output aria-live="polite">{value}%</output>
+        <button aria-label={`增大${label}`} disabled={index >= steps.length - 1} onClick={() => onChange(steps[index + 1])} type="button">+</button>
+      </div>
     </div>
   );
 }
