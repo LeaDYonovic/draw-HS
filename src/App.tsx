@@ -4,6 +4,7 @@ import { CardImage } from "./components/CardImage";
 import { ClueCardWidget } from "./components/ClueCardWidget";
 import { emitWithAck, socket } from "./realtime";
 import { calculateScore } from "./score-rules.mjs";
+import { watchForAppUpdates } from "./version-watch";
 import type {
   CardPreview,
   ChatMessage,
@@ -74,6 +75,8 @@ export function App() {
   const [pageScale, setPageScale] = useState(readPageScale);
   const [fontScale, setFontScale] = useState(readFontScale);
   const [toast, setToast] = useState("");
+
+  useEffect(() => watchForAppUpdates(), []);
 
   useEffect(() => {
     const onConnect = async () => {
