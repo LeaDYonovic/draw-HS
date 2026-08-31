@@ -1756,10 +1756,15 @@ textarea:focus {
   letter-spacing: 0.12em;
 }
 .card-sticker.artwork::before { background: rgba(229, 194, 112, 0.52); }
-.card-sticker.art-northwest { top: 12%; left: 15%; width: 35%; height: 20%; transform: rotate(-1deg); }
-.card-sticker.art-northeast { top: 12%; right: 15%; width: 35%; height: 20%; transform: rotate(1deg); }
-.card-sticker.art-southwest { top: 32%; left: 15%; width: 35%; height: 19%; transform: rotate(1deg); }
-.card-sticker.art-southeast { top: 32%; right: 15%; width: 35%; height: 19%; transform: rotate(-1deg); }
+.card-sticker.art-cover {
+  top: 10%;
+  left: 13%;
+  width: 74%;
+  height: 44%;
+  border-radius: 48%;
+  clip-path: ellipse(49% 50% at 50% 50%);
+  transform: rotate(-0.4deg);
+}
 .card-sticker.name {
   top: 48%;
   left: 12%;
@@ -1784,11 +1789,6 @@ textarea:focus {
 .card-sticker.attack.opened,
 .card-sticker.description.opened { transform: translate(-18px, -16px) rotate(-15deg) scale(0.82); }
 .card-sticker.health.opened { transform: translate(18px, -16px) rotate(15deg) scale(0.82); }
-.card-sticker.art-northwest.opened,
-.card-sticker.art-southwest.opened { transform: translate(-12px, -9px) rotate(-8deg) scale(0.86); }
-.card-sticker.art-northeast.opened,
-.card-sticker.art-southeast.opened { transform: translate(12px, -9px) rotate(8deg) scale(0.86); }
-
 .drawer-reference > strong {
   width: 100%;
   color: #fff0b5;

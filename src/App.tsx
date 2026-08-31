@@ -1005,17 +1005,14 @@ function ClueCardReveal({
   stage: number;
 }) {
   const stickers = [
-    { className: "artwork art-northwest", label: "插画", revealAt: 1 },
-    { className: "artwork art-northeast", label: "插画", revealAt: 2 },
-    { className: "artwork art-southwest", label: "插画", revealAt: 2 },
-    { className: "artwork art-southeast", label: "插画", revealAt: 1 },
+    { className: "artwork art-cover", label: "插画持续封印", revealAt: Number.POSITIVE_INFINITY },
     { className: "cost", label: "费用", revealAt: 2 },
     { className: "attack", label: "攻击", revealAt: 2 },
     { className: "health", label: "生命 / 耐久", revealAt: 2 },
     { className: "name", label: "卡牌名称", revealAt: Number.POSITIVE_INFINITY },
     { className: "description", label: "卡牌描述", revealAt: 2 },
   ];
-  const stageText = ["卡面仍在封印", "部分插画已显现", "插画、属性与描述已揭开"];
+  const stageText = ["卡面仍在封印", "第一阶段属性已显现", "属性与描述已揭开"];
 
   return (
     <aside className={`drawer-reference clue-card-reference stage-${stage}`} aria-label="逐步解密的提示卡牌">
@@ -1042,8 +1039,8 @@ function ClueCardReveal({
       <strong>{stageText[stage] ?? stageText[0]}</strong>
       <p>
         {stage >= 2
-          ? "卡名仍封印到本轮结算；现在可以结合属性、描述与画板作答。"
-          : "卡名始终封印；继续观察画板，下一阶段会揭开更多卡面信息。"}
+          ? "卡名与插画封印到本轮结算；现在可以结合属性、描述与画板作答。"
+          : "卡名与插画始终封印；继续观察画板，下一阶段会揭开更多属性信息。"}
       </p>
     </aside>
   );

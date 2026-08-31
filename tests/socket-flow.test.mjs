@@ -314,7 +314,7 @@ test("a wrong choice can be retried after the one-second submit cooldown", async
       state.round.answerSubmittedCorrectly,
   );
 
-  const finalReveal = await guestState.waitFor(
+  const finalReveal = await hostState.waitFor(
     (state) => state.phase === "drawing" && state.round.finalRevealCard,
   );
   assert.equal(finalReveal.round.finalRevealCard.name, answer);
@@ -322,6 +322,7 @@ test("a wrong choice can be retried after the one-second submit cooldown", async
     finalReveal.round.finalRevealCard.imageUrl,
     /^\/api\/cards\/images\/.+\.png\?v=[a-f0-9]{12}$/u,
   );
+  assert.equal(guestState.current.round.finalRevealCard, null);
 
   const ended = await guestState.waitFor((state) => state.phase === "roundEnd");
   assert.equal(ended.round.word, answer);

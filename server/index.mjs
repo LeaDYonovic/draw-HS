@@ -1113,7 +1113,7 @@ function publicState(room, viewerId) {
               ? { imageUrl: cardPreview(selectedWord)?.imageUrl ?? "" }
               : null,
           finalRevealCard:
-            room.phase === "drawing" && current.finalCardVisible
+            room.phase === "drawing" && current.finalCardVisible && isDrawer
               ? cardPreview(selectedWord)
               : null,
           answerCard:
@@ -1496,7 +1496,7 @@ function revealFinalCard(room, roundStartedAt) {
     return;
   }
   current.finalCardVisible = true;
-  addSystemMessage(room, "最后 5 秒：原卡图正在画板上渐显，本阶段仍可修改答案。");
+  addSystemMessage(room, "最后 5 秒：插画继续封印，本阶段仍可修改答案。");
   emitState(room);
 }
 
