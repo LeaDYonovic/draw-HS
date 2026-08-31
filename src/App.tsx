@@ -955,6 +955,32 @@ function GameRoom({
     }
   };
 
+  const clueRevealActive =
+    room.phase === "drawing" &&
+    !room.isDrawer &&
+    Boolean(round?.clues && round.clueCard);
+  const roundPrompt = (
+    <>
+      <div className="round-drawer-name">
+        <span className="status-label">本轮画师</span>
+        <strong>{drawer?.name ?? "-"}</strong>
+      </div>
+      <div className="word-status">
+        <span className="status-label">{room.isSpectator ? "围观题目" : room.isDrawer && room.phase === "drawing" ? "你的题目" : "猜猜这是"}</span>
+        <strong className={room.phase === "drawing" && !room.isDrawer ? "masked-word" : ""}>
+          {round?.word || (room.phase === "choosing" ? "等待选题" : "-")}
+        </strong>
+        {room.phase === "drawing" && !room.isDrawer && (
+          <small>
+            {room.isSpectator
+              ? "围观中 · 当前不能答题"
+              : "选择题 · 选中后提交，答错可继续"}
+          </small>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="game-page page-enter">
       <header className="game-header">
@@ -988,36 +1014,24 @@ function GameRoom({
           </div>
         </aside>
 
-        <div className="round-prompt-column">
-          <div className="round-drawer-name">
-            <span className="status-label">本轮画师</span>
-            <strong>{drawer?.name ?? "-"}</strong>
-          </div>
-          <div className="word-status">
-            <span className="status-label">{room.isSpectator ? "围观题目" : room.isDrawer && room.phase === "drawing" ? "你的题目" : "猜猜这是"}</span>
-            <strong className={room.phase === "drawing" && !room.isDrawer ? "masked-word" : ""}>
-              {round?.word || (room.phase === "choosing" ? "等待选题" : "-")}
-            </strong>
-            {room.phase === "drawing" && !room.isDrawer && (
-              <small>
-                {room.isSpectator
-                  ? "围观中 · 当前不能答题"
-                  : "选择题 · 选中后提交，答错可继续"}
-              </small>
-            )}
-          </div>
+        <div className={`round-prompt-column ${clueRevealActive ? "card-centered" : ""}`}>
+          {room.phase === "drawing" && !room.isDrawer && round?.clues && round.clueCard
+            ? <ClueCardReveal card={round.clueCard} stage={round.clues.stage} />
+            : roundPrompt}
         </div>
 
         <aside className="round-reveal-column">
           {room.phase === "drawing" && !room.isDrawer && round?.clues && round.clueCard ? (
-            <RoundCluePanel
-              canEndRound={room.canEndRound}
-              card={round.clueCard}
-              endingRound={endingRound}
-              isSpectator={room.isSpectator}
-              onEndRound={endSoloRound}
-              round={round}
-            />
+            <>
+              <div className="answer-prompt">{roundPrompt}</div>
+              <RoundCluePanel
+                canEndRound={room.canEndRound}
+                endingRound={endingRound}
+                isSpectator={room.isSpectator}
+                onEndRound={endSoloRound}
+                round={round}
+              />
+            </>
           ) : (
             <div className="round-timer-actions plain-round-actions">
               <RoundTimer endsAt={round?.endsAt ?? Date.now()} phase={room.phase} />
@@ -1164,14 +1178,12 @@ function ClueCardReveal({
 
 function RoundCluePanel({
   canEndRound,
-  card,
   endingRound,
   round,
   isSpectator,
   onEndRound,
 }: {
   canEndRound: boolean;
-  card: NonNullable<RoomState["round"]>["clueCard"];
   endingRound: boolean;
   round: NonNullable<RoomState["round"]>;
   isSpectator: boolean;
@@ -1209,6 +1221,14 @@ function RoundCluePanel({
           <strong>{stageLabels[clues.stage] ?? stageLabels[0]}</strong>
           <small>{stageMessages[clues.stage] ?? stageMessages[0]}</small>
         </div>
+        <div className="round-timer-actions reveal-round-actions">
+          <RoundTimer endsAt={round.endsAt} phase="drawing" />
+          {canEndRound && (
+            <button disabled={endingRound} onClick={onEndRound} type="button">
+              {endingRound ? "正在结束" : "立即结束本题"}
+            </button>
+          )}
+        </div>
         <div className="clue-score">
           <span>{isSpectator ? "本题分档" : clues.selectedScore === null ? "当前答对" : "当前选择答对"}</span>
           <strong>
@@ -1218,16 +1238,7 @@ function RoundCluePanel({
           </strong>
           {!isSpectator && clues.selectedScore !== null && <small>修改后重新计分</small>}
         </div>
-        <div className="round-timer-actions reveal-round-actions">
-          <RoundTimer endsAt={round.endsAt} phase="drawing" />
-          {canEndRound && (
-            <button disabled={endingRound} onClick={onEndRound} type="button">
-              {endingRound ? "正在结束" : "立即结束本题"}
-            </button>
-          )}
-        </div>
       </div>
-      {card && <ClueCardReveal card={card} stage={clues.stage} />}
     </section>
   );
 }
