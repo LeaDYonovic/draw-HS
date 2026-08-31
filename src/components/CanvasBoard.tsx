@@ -17,6 +17,7 @@ const COLORS = [
   "#68488c",
   "#8c5a3c",
 ];
+const CANVAS_ASPECT_RATIO = 4 / 3;
 
 interface CanvasBoardProps {
   canDraw: boolean;
@@ -240,7 +241,7 @@ export function CanvasBoard({
     try {
       const result = await extractCardOutline(referenceImageUrl, {
         cardType: referenceCardType,
-        canvasAspect: canvas.clientWidth / Math.max(1, canvas.clientHeight),
+        canvasAspect: CANVAS_ASPECT_RATIO,
         detail: assistDetail,
       });
       if (

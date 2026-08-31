@@ -2211,7 +2211,7 @@ textarea:focus {
 .canvas-frame {
   position: relative;
   width: 100%;
-  height: clamp(390px, calc(100vh - 263px), 690px);
+  height: auto;
   overflow: hidden;
   border: 8px solid #6b4528;
   border-radius: 3px 3px 12px 12px;
@@ -2232,7 +2232,8 @@ textarea:focus {
 
 .canvas-frame canvas {
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
   display: block;
   cursor: default;
   touch-action: none;
@@ -3237,7 +3238,7 @@ textarea:focus {
   .drawer-reference-visual,
   .drawer-workspace .clue-card-stage { width: min(100%, 158px); }
   .settlement-card-visual { width: min(100%, 194px); }
-  .canvas-frame { height: min(64vh, 520px); min-height: 340px; }
+  .canvas-frame { height: auto; min-height: 0; }
   .chat-panel { height: 330px; }
   .answer-panel { height: min(62vh, 540px); min-height: 420px; }
   .game-sidebar { height: min(70vh, 600px); min-height: 460px; }
@@ -3313,7 +3314,7 @@ textarea:focus {
     grid-template-columns: 29px 76px minmax(0, 1fr);
   }
   .answering-layout .answer-option-visual { width: 76px; }
-  .canvas-frame { min-height: 300px; }
+  .canvas-frame { min-height: 0; }
 }
 
 /* Temporary mask lab. The game and this page share CardMaskWidget. */
