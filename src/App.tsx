@@ -967,6 +967,8 @@ function GameRoom({
               overlay={overlay}
               referenceCardType={round?.referenceCard?.type}
               referenceImageUrl={round?.referenceCard?.imageUrl}
+              roundDurationMs={round?.durationMs}
+              roundEndsAt={round?.endsAt}
               roundKey={round?.key ?? "none"}
             />
           </div>

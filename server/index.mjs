@@ -22,6 +22,7 @@ import {
   pickWords,
   searchCards,
 } from "./game-utils.mjs";
+import { getProgressiveDrawingPlan } from "../src/progressive-drawing.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -1431,30 +1432,14 @@ function scheduleBotDrawing(room) {
       if (!activeBotDrawingRound(room, roundStartedAt)) return;
       drawingStarted = true;
       clearTimeout(fallbackTimer);
-      const outlineBatchSize = 12;
-      const outlineIntervalMs = Math.max(55, Math.min(160, durationMs * 0.0025));
-      queueBotSegments(room, roundStartedAt, outline, {
-        batchSize: outlineBatchSize,
-        startDelayMs: 40,
-        intervalMs: outlineIntervalMs,
+      const plan = getProgressiveDrawingPlan(durationMs, {
+        outline: outline.length,
+        coloring: coloring.length,
+        finishing: finishing.length,
       });
-      const outlineDurationMs =
-        Math.ceil(outline.length / outlineBatchSize) * outlineIntervalMs;
-      const coloringBatchSize = 16;
-      const coloringIntervalMs = Math.max(45, Math.min(100, durationMs * 0.0015));
-      queueBotSegments(room, roundStartedAt, coloring, {
-        batchSize: coloringBatchSize,
-        startDelayMs: outlineDurationMs + Math.min(700, durationMs * 0.025),
-        intervalMs: coloringIntervalMs,
-      });
-      const coloringDurationMs =
-        Math.ceil(coloring.length / coloringBatchSize) * coloringIntervalMs;
-      queueBotSegments(room, roundStartedAt, finishing, {
-        batchSize: 10,
-        startDelayMs:
-          outlineDurationMs + coloringDurationMs + Math.min(900, durationMs * 0.02),
-        intervalMs: Math.max(45, Math.min(100, durationMs * 0.0015)),
-      });
+      queueBotSegments(room, roundStartedAt, outline, plan.outline);
+      queueBotSegments(room, roundStartedAt, coloring, plan.coloring);
+      queueBotSegments(room, roundStartedAt, finishing, plan.finishing);
     })
     .catch((error) => {
       console.warn(`AI 轮廓生成失败 ${card.id}: ${error.message}`);

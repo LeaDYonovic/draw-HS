@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { extractCardOutline } from "../outline-assist.mjs";
+import {
+  getProgressiveDrawingPlan,
+  type ProgressiveDrawingPhase,
+} from "../progressive-drawing.mjs";
 import { socket } from "../realtime";
 import type { CanvasEvent, CanvasSegment } from "../types";
 
@@ -21,6 +25,8 @@ interface CanvasBoardProps {
   onAssistError?: (message: string) => void;
   referenceCardType?: string;
   referenceImageUrl?: string;
+  roundDurationMs?: number;
+  roundEndsAt?: number;
   roundKey: string;
   overlay?: string;
 }
@@ -32,6 +38,8 @@ export function CanvasBoard({
   onAssistError,
   referenceCardType,
   referenceImageUrl,
+  roundDurationMs,
+  roundEndsAt,
   roundKey,
   overlay,
 }: CanvasBoardProps) {
@@ -250,29 +258,58 @@ export function CanvasBoard({
         throw new Error("这张卡牌没有提取到足够清晰的轮廓");
       }
 
-      const drawPhase = async (segments: CanvasSegment[]) => {
-        for (let index = 0; index < segments.length; index += 64) {
+      const availableDurationMs = Math.max(
+        1_000,
+        Math.min(
+          roundDurationMs ?? 60_000,
+          roundEndsAt ? roundEndsAt - Date.now() : roundDurationMs ?? 60_000,
+        ),
+      );
+      const plan = getProgressiveDrawingPlan(availableDurationMs, {
+        outline: result.outline.length,
+        coloring: result.coloring.length,
+        finishing: result.finishing.length,
+      });
+      const progressiveStartedAt = performance.now();
+      const stillActive = () =>
+        run === assistRunRef.current &&
+        canDrawRef.current &&
+        roundKeyRef.current === activeRoundKey;
+      const wait = async (duration: number) => {
+        if (duration > 0) {
+          await new Promise<void>((resolve) => window.setTimeout(resolve, duration));
+        }
+        return stillActive();
+      };
+      const drawPhase = async (
+        segments: CanvasSegment[],
+        phase: ProgressiveDrawingPhase,
+      ) => {
+        const waitBeforeStart = phase.startDelayMs -
+          (performance.now() - progressiveStartedAt);
+        if (!await wait(waitBeforeStart)) return false;
+        for (let index = 0; index < segments.length; index += phase.batchSize) {
           if (
-            run !== assistRunRef.current ||
-            !canDrawRef.current ||
-            roundKeyRef.current !== activeRoundKey
+            !stillActive()
           ) {
             return false;
           }
-          const batch = segments.slice(index, index + 64);
+          const batch = segments.slice(index, index + phase.batchSize);
           historyRef.current.push(...batch);
           batch.forEach(paintSegment);
           emitSegments(batch);
-          await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+          if (index + phase.batchSize < segments.length && !await wait(phase.intervalMs)) {
+            return false;
+          }
         }
         return true;
       };
       setAssistState("outlining");
-      if (!await drawPhase(result.outline)) return;
+      if (!await drawPhase(result.outline, plan.outline)) return;
       setAssistState("coloring");
-      if (!await drawPhase(result.coloring)) return;
+      if (!await drawPhase(result.coloring, plan.coloring)) return;
       setAssistState("finishing");
-      if (!await drawPhase(result.finishing)) return;
+      if (!await drawPhase(result.finishing, plan.finishing)) return;
       setAssistState("done");
     } catch (error) {
       if (run !== assistRunRef.current) return;
