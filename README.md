@@ -96,6 +96,8 @@ sudo systemctl enable --now hearth-draw
 
 当前房间、积分和聊天保存在进程内存中，服务重启后会清空。未配置 `CARD_IMAGE_BASE_URL` 时，卡牌图片缓存在 `CARD_IMAGE_DIR`，systemd 配置默认使用 `/var/lib/hearth-draw/card-images`；配置 R2 公网目录后，浏览器会直接加载 R2 卡图，树莓派上的本地接口继续作为回退。随附配置只信任树莓派本机的 Cloudflare Tunnel 代理头；如果代理运行在其他主机，需要同步修改 `TRUSTED_PROXY_ADDRESSES`。
 
+服务器端原子发布脚本为 `deploy/deploy-release.sh <版本号>`。它只会在房间和在线人数均为 0 时执行，并同时备份网页、服务端运行文件和完整卡牌目录；健康检查失败会自动恢复上一版本。
+
 ## 说明
 
 这是非商业同人项目。炉石传说及相关卡牌名称、图片和素材归其权利方所有。
