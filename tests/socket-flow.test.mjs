@@ -252,11 +252,12 @@ test("a wrong choice can be retried after the one-second submit cooldown", async
       {
         x0: 0.4,
         y0: 0.5,
-        x1: 0.5,
-        y1: 0.6,
+        x1: 0.4,
+        y1: 0.5,
         size: 7,
         color: "#17242a",
         tool: "brush",
+        shape: "dot",
       },
       {
         x0: 0.5,
@@ -272,6 +273,7 @@ test("a wrong choice can be retried after the one-second submit cooldown", async
   const receivedBatch = await canvasBatch;
   assert.equal(receivedBatch.type, "segments");
   assert.equal(receivedBatch.segments.length, 2);
+  assert.equal(receivedBatch.segments[0].shape, "dot");
 
   const correctIndex = drawing.round.answerOptions.indexOf(answer);
   const wrongIndex = (correctIndex + 1) % drawing.round.answerOptions.length;

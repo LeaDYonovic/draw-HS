@@ -170,6 +170,7 @@ export interface CanvasSegment {
   size: number;
   color: string;
   tool: "brush" | "eraser";
+  shape?: "dot";
 }
 
 export interface CardSearchResult extends CardPreview {}

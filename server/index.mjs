@@ -1748,6 +1748,7 @@ function validSegment(input) {
     size: Math.max(1, Math.min(36, input.size)),
     color,
     tool: input.tool,
+    shape: input.shape === "dot" ? "dot" : undefined,
   };
 }
 

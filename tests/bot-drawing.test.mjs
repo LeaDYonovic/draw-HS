@@ -95,6 +95,12 @@ test("uses a higher-resolution color grid for AI drawing by default", () => {
     { type: "MINION" },
   );
   assert.equal(drawing.coloring.length, 5_200);
+  assert.ok(drawing.coloring.every(
+    (segment) =>
+      segment.shape === "dot" &&
+      segment.x0 === segment.x1 &&
+      segment.y0 === segment.y1,
+  ));
   assert.ok(drawing.outline.length >= 40 && drawing.outline.length <= 2_300);
   assert.equal(drawing.finishing.length, Math.min(700, drawing.outline.length));
   assert.ok(drawing.segments.length < 15_000);

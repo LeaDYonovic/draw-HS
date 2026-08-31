@@ -116,6 +116,12 @@ test("keeps boundaries that differ mainly by color", () => {
   assert.ok(result.paths >= 1);
   assert.ok(result.outline.length >= 48);
   assert.ok(result.coloring.length > 0);
+  assert.ok(result.coloring.every(
+    (segment) =>
+      segment.shape === "dot" &&
+      segment.x0 === segment.x1 &&
+      segment.y0 === segment.y1,
+  ));
   assert.ok(result.finishing.length > 0);
   assert.deepEqual(
     result.segments,

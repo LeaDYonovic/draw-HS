@@ -71,6 +71,20 @@ export function CanvasBoard({
     context.save();
     context.globalCompositeOperation =
       segment.tool === "eraser" ? "destination-out" : "source-over";
+    if (segment.shape === "dot") {
+      context.fillStyle = segment.color;
+      context.beginPath();
+      context.arc(
+        segment.x0 * canvas.width,
+        segment.y0 * canvas.height,
+        Math.max(0.5, segment.size * scale / 2),
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
+      context.restore();
+      return;
+    }
     context.strokeStyle = segment.color;
     context.lineWidth = segment.size * scale;
     context.lineCap = "round";

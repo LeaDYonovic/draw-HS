@@ -884,27 +884,20 @@ export function buildColorPaintingSegments(pixelBuffer, options = {}) {
     (detail === "detailed" ? 8 : detail === "simple" ? 18 : 12);
   const segments = [];
   for (const candidate of candidates.slice(0, maximum)) {
-    const diagonal = ((candidate.x / cellSize + candidate.y / cellSize) % 2 ? 1 : -1) * cellSize * 0.12;
-    const start = mapDrawingCoordinate(
-      candidate.x - cellSize * 0.48,
-      candidate.y - diagonal,
-      width,
-      height,
-      bounds,
-    );
-    const end = mapDrawingCoordinate(
-      candidate.x + cellSize * 0.48,
-      candidate.y + diagonal,
+    const center = mapDrawingCoordinate(
+      candidate.x,
+      candidate.y,
       width,
       height,
       bounds,
     );
     segments.push({
-      x0: start.x,
-      y0: start.y,
-      x1: end.x,
-      y1: end.y,
+      x0: center.x,
+      y0: center.y,
+      x1: center.x,
+      y1: center.y,
       color: candidate.color,
+      shape: "dot",
       size: brushSize,
       tool: "brush",
     });
