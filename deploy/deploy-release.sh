@@ -45,7 +45,12 @@ test -f "$STAGE/collectible_cards_zhCN.full.json"
 test ! -e "$BACKUP"
 
 health_json="$(curl -fsS http://127.0.0.1:3000/api/health)"
-node -e 'const h=JSON.parse(process.argv[1]); if (!h.ok || h.rooms !== 0 || h.online !== 0) process.exit(1)' "$health_json"
+if [[ "${FORCE_DEPLOY:-0}" = "1" ]]; then
+  node -e 'const h=JSON.parse(process.argv[1]); if (!h.ok || h.rooms !== 0) process.exit(1)' "$health_json"
+  echo "Forced deployment: connected lobby clients will reconnect." >&2
+else
+  node -e 'const h=JSON.parse(process.argv[1]); if (!h.ok || h.rooms !== 0 || h.online !== 0) process.exit(1)' "$health_json"
+fi
 
 mkdir -p "$BACKUP/server" "$BACKUP/src"
 cp "$APP/server/"*.mjs "$BACKUP/server/"
