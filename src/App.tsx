@@ -960,10 +960,7 @@ function GameRoom({
     }
   };
 
-  const clueRevealActive =
-    room.phase === "drawing" &&
-    !room.isDrawer &&
-    Boolean(round?.clues && round.clueCard);
+  const useAnswerLayout = room.phase === "drawing" && !room.isDrawer;
   const roundPrompt = (
     <>
       <div className="round-drawer-name">
@@ -986,6 +983,68 @@ function GameRoom({
     </>
   );
 
+  const boardPanel = (
+    <div className="board-column">
+      {room.phase === "choosing" && room.isDrawer && (
+        <div className="word-picker">
+          <span>从三张卡牌中选择你的题目</span>
+          <div>
+            {round?.optionCards.map((card) => (
+              <button key={card.id} onClick={() => chooseWord(card.name)} type="button">
+                <CardImage card={card} className="picker-card-visual" loading="eager" />
+                <strong>{card.name}</strong>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className={`drawer-workspace ${room.phase === "roundEnd" ? "settlement-workspace" : ""}`.trim()}>
+        <CanvasBoard
+          canDraw={room.phase === "drawing" && room.isDrawer}
+          onAssistError={onError}
+          overlay={overlay}
+          referenceCardType={round?.referenceCard?.type}
+          referenceImageUrl={round?.referenceCard?.imageUrl}
+          roundDurationMs={round?.durationMs}
+          roundEndsAt={round?.endsAt}
+          roundKey={round?.key ?? "none"}
+        />
+      </div>
+    </div>
+  );
+
+  const referencePanel = room.phase === "drawing" && room.isDrawer && round?.referenceCard ? (
+    <aside className="drawer-reference workspace-reference" aria-label="作画参考卡牌">
+      <div className="drawer-reference-heading">
+        <span>作画参考</span>
+        <small>{CARD_TYPE_LABELS[round.referenceCard.type] ?? "卡牌"} · 仅你可见</small>
+      </div>
+      <CardImage card={round.referenceCard} className="drawer-reference-visual" loading="eager" />
+      <strong>{round.referenceCard.name}</strong>
+      <p>可观察卡面手绘，也可选择轮廓辅助；参考图仅你可见。</p>
+    </aside>
+  ) : room.phase === "roundEnd" && round?.answerCard ? (
+    <aside className="drawer-reference workspace-reference settlement-card-reference" aria-label="本轮正确答案">
+      <div className="drawer-reference-heading">
+        <span>本轮揭晓</span>
+        <small>{room.isDrawer ? "完整卡面" : self?.answeredCorrectly ? "选择正确" : "正确答案"}</small>
+      </div>
+      <CardImage
+        card={round.answerCard}
+        className="drawer-reference-visual settlement-card-visual"
+        loading="eager"
+      />
+      <strong>{round.answerCard.name}</strong>
+      <p>完整卡面已经揭晓，可对照本轮画作查看答案。</p>
+    </aside>
+  ) : (
+    <aside className="workspace-placeholder-panel">
+      <span>{room.phase === "choosing" ? "等待选题" : "牌桌状态"}</span>
+      <strong>{room.phase === "choosing" ? `${drawer?.name ?? "画师"} 正在选择卡牌` : room.name}</strong>
+      <p>作画阶段开始后，这里会显示画师专用的卡牌参考。</p>
+    </aside>
+  );
+
   return (
     <div className="game-page page-enter">
       <header className="game-header">
@@ -1003,7 +1062,7 @@ function GameRoom({
 
       <PlayerRibbon phase={room.phase} players={room.players} />
 
-      <section className="round-overview">
+      <section className="round-overview game-context-strip">
         <aside className="round-room-column">
           <span className="overview-eyebrow">房间信息</span>
           <strong className="round-room-name" title={room.name}>{room.name}</strong>
@@ -1019,34 +1078,12 @@ function GameRoom({
           </div>
         </aside>
 
-        <div className={`round-prompt-column ${clueRevealActive ? "card-centered" : ""}`}>
-          {room.phase === "drawing" && !room.isDrawer && round?.clues && round.clueCard
-            ? <ClueCardReveal card={round.clueCard} fields={round.clues.fields} stage={round.clues.stage} />
-            : roundPrompt}
-        </div>
+        <div className="round-prompt-column">{roundPrompt}</div>
 
         <aside className="round-reveal-column">
-          {room.phase === "drawing" && !room.isDrawer && round?.clues && round.clueCard ? (
-            <>
-              <div className="answer-prompt">{roundPrompt}</div>
-              <RoundCluePanel
-                canEndRound={room.canEndRound}
-                endingRound={endingRound}
-                isSpectator={room.isSpectator}
-                onEndRound={endSoloRound}
-                round={round}
-              />
-            </>
-          ) : (
-            <div className="round-timer-actions plain-round-actions">
-              <RoundTimer endsAt={round?.endsAt ?? Date.now()} phase={room.phase} />
-              {room.canEndRound && (
-                <button disabled={endingRound} onClick={endSoloRound} type="button">
-                  {endingRound ? "正在结束" : "立即结束本题"}
-                </button>
-              )}
-            </div>
-          )}
+          <span className="overview-eyebrow">当前模式</span>
+          <strong>{useAnswerLayout ? room.isSpectator ? "围观对局" : "选择答题" : room.phase === "drawing" ? "自由作画" : "回合准备"}</strong>
+          <small>{useAnswerLayout ? "画布在左 · 选项在中 · 提示在右" : "参考在左 · 画布在中 · 计时在右"}</small>
         </aside>
       </section>
 
@@ -1067,77 +1104,64 @@ function GameRoom({
         </section>
       )}
 
-      <div className={`game-grid ${isAnswering ? "answering-layout" : ""}`}>
-        <div className="board-column">
-          {room.phase === "choosing" && room.isDrawer && (
-            <div className="word-picker">
-              <span>从三张卡牌中选择你的题目</span>
-              <div>
-                {round?.optionCards.map((card) => (
-                  <button key={card.id} onClick={() => chooseWord(card.name)} type="button">
-                    <CardImage card={card} className="picker-card-visual" loading="eager" />
-                    <strong>{card.name}</strong>
-                  </button>
-                ))}
+      <div className={`game-workspace-grid ${useAnswerLayout ? "answer-mode" : "draw-mode"}`}>
+        {useAnswerLayout ? (
+          <>
+            <section className="game-workspace-column workspace-canvas-column">{boardPanel}</section>
+            <section className="game-workspace-column workspace-answer-column">
+              {isAnswering && round ? (
+                <ChoiceAnswerPanel onError={onError} round={round} />
+              ) : (
+                <div className="spectator-answer-placeholder">
+                  <span>围观模式</span>
+                  <strong>观察画作与提示</strong>
+                  <p>围观玩家不能参与当前题目，可以申请从下一轮开始加入。</p>
+                </div>
+              )}
+            </section>
+            <aside className="game-workspace-column answer-clue-stack">
+              <div className="answer-clue-panel">
+                {round?.clues && round.clueCard ? (
+                  <ClueCardReveal card={round.clueCard} fields={round.clues.fields} stage={round.clues.stage} />
+                ) : (
+                  <div className="clue-card-placeholder">提示卡正在准备</div>
+                )}
               </div>
-            </div>
-          )}
-          <div
-            className={`drawer-workspace ${
-              round?.referenceCard || round?.answerCard ? "with-reference" : ""
-            } ${room.phase === "roundEnd" ? "settlement-workspace" : ""}`.trim()}
-          >
-            {room.phase === "drawing" && room.isDrawer && round?.referenceCard && (
-              <aside className="drawer-reference" aria-label="作画参考卡牌">
-                <div className="drawer-reference-heading">
-                  <span>作画参考</span>
-                  <small>
-                    {CARD_TYPE_LABELS[round.referenceCard.type] ?? "卡牌"} · 仅你可见
-                  </small>
-                </div>
-                <CardImage
-                  card={round.referenceCard}
-                  className="drawer-reference-visual"
-                  loading="eager"
+              {round && (
+                <RoundCluePanel
+                  canEndRound={room.canEndRound}
+                  endingRound={endingRound}
+                  isSpectator={room.isSpectator}
+                  onEndRound={endSoloRound}
+                  round={round}
                 />
-                <strong>{round.referenceCard.name}</strong>
-                <p>可观察卡面手绘，也可选择轮廓辅助；参考图仅你可见。</p>
-              </aside>
-            )}
-            {room.phase === "roundEnd" && round?.answerCard && (
-              <aside className="drawer-reference settlement-card-reference" aria-label="本轮正确答案">
-                <div className="drawer-reference-heading">
-                  <span>本轮揭晓</span>
-                  <small>
-                    {room.isDrawer
-                      ? "完整卡面"
-                      : self?.answeredCorrectly
-                        ? "选择正确"
-                        : "正确答案"}
-                  </small>
+              )}
+              <RoomChatPanel className="workspace-chat" onError={onError} room={room} />
+            </aside>
+          </>
+        ) : (
+          <>
+            <section className="game-workspace-column workspace-reference-column">{referencePanel}</section>
+            <section className="game-workspace-column workspace-canvas-column">{boardPanel}</section>
+            <aside className="game-workspace-column drawing-side-stack">
+              <section className="workspace-round-panel">
+                <div>
+                  <span className="overview-eyebrow">本题计时</span>
+                  <strong>{room.phase === "drawing" ? "作画进行中" : room.phase === "roundEnd" ? "本轮结算" : "等待开始"}</strong>
                 </div>
-                <CardImage
-                  card={round.answerCard}
-                  className="drawer-reference-visual settlement-card-visual"
-                  loading="eager"
-                />
-                <strong>{round.answerCard.name}</strong>
-                <p>完整卡面已经揭晓，可对照本轮画作查看答案。</p>
-              </aside>
-            )}
-            <CanvasBoard
-              canDraw={room.phase === "drawing" && room.isDrawer}
-              onAssistError={onError}
-              overlay={overlay}
-              referenceCardType={round?.referenceCard?.type}
-              referenceImageUrl={round?.referenceCard?.imageUrl}
-              roundDurationMs={round?.durationMs}
-              roundEndsAt={round?.endsAt}
-              roundKey={round?.key ?? "none"}
-            />
-          </div>
-        </div>
-        <GameSidebar onError={onError} room={room} />
+                <div className="round-timer-actions plain-round-actions">
+                  <RoundTimer endsAt={round?.endsAt ?? Date.now()} phase={room.phase} />
+                  {room.canEndRound && (
+                    <button disabled={endingRound} onClick={endSoloRound} type="button">
+                      {endingRound ? "正在结束" : "立即结束本题"}
+                    </button>
+                  )}
+                </div>
+              </section>
+              <RoomChatPanel className="workspace-chat" onError={onError} room={room} />
+            </aside>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1482,36 +1506,6 @@ function ChoiceAnswerPanel({
         </button>
       </div>
     </aside>
-  );
-}
-
-function GameSidebar({ room, onError }: { room: RoomState; onError: (message?: string) => void }) {
-  const round = room.round;
-  const canAnswer = room.phase === "drawing" && !room.isDrawer && !room.isSpectator && Boolean(round?.questionType);
-  const [tab, setTab] = useState<"answer" | "chat">(canAnswer ? "answer" : "chat");
-
-  useEffect(() => {
-    setTab(canAnswer ? "answer" : "chat");
-  }, [canAnswer, round?.key]);
-
-  if (!canAnswer || !round) {
-    return <RoomChatPanel onError={onError} room={room} />;
-  }
-
-  return (
-    <div className="game-sidebar">
-      <div className="side-tabs" role="tablist">
-        <button className={tab === "answer" ? "active" : ""} onClick={() => setTab("answer")} role="tab" type="button">
-          选择答题
-        </button>
-        <button className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")} role="tab" type="button">房间聊天</button>
-      </div>
-      {tab === "answer" ? (
-        <ChoiceAnswerPanel onError={onError} round={round} />
-      ) : (
-        <RoomChatPanel onError={onError} room={room} />
-      )}
-    </div>
   );
 }
 

@@ -1892,6 +1892,306 @@ textarea:focus {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* The game uses one stable three-column shell. Drawing and answering only swap modules. */
+.game-context-strip {
+  min-height: 108px;
+  grid-template-columns: minmax(250px, 28fr) minmax(420px, 44fr) minmax(250px, 28fr);
+}
+
+.game-context-strip .round-room-column {
+  padding: 11px 16px;
+  align-content: center;
+  gap: 6px;
+}
+
+.game-context-strip .round-room-name {
+  font-size: clamp(0.94rem, 1.1vw, 1.25rem);
+}
+
+.game-context-strip .round-room-facts {
+  gap: 5px;
+}
+
+.game-context-strip .round-room-facts > span {
+  padding: 5px 7px;
+}
+
+.game-context-strip .round-bank-name {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+}
+
+.game-context-strip .round-bank-name strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-context-strip .round-prompt-column {
+  min-height: 0;
+  padding: 12px clamp(18px, 2vw, 34px);
+  grid-template-columns: minmax(110px, 0.34fr) minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  align-items: center;
+  gap: 18px;
+}
+
+.game-context-strip .round-drawer-name {
+  justify-items: start;
+  text-align: left;
+}
+
+.game-context-strip .word-status {
+  align-content: center;
+  justify-items: start;
+  gap: 3px;
+  text-align: left;
+}
+
+.game-context-strip .word-status strong {
+  font-size: clamp(1.2rem, 2vw, 2rem);
+}
+
+.game-context-strip .round-reveal-column {
+  min-height: 0;
+  padding: 14px 18px;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-content: center;
+  gap: 4px;
+}
+
+.game-context-strip .round-reveal-column > strong {
+  color: #f6d578;
+  font-size: clamp(0.9rem, 1.15vw, 1.2rem);
+}
+
+.game-context-strip .round-reveal-column > small {
+  color: #86aaa7;
+  font-size: 0.64rem;
+  line-height: 1.45;
+}
+
+.game-workspace-grid {
+  --game-workspace-height: clamp(610px, calc(100vh - 250px), 860px);
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(270px, 28fr) minmax(480px, 44fr) minmax(300px, 28fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.game-workspace-column {
+  min-width: 0;
+  height: var(--game-workspace-height);
+}
+
+.workspace-canvas-column,
+.workspace-canvas-column > .board-column,
+.workspace-canvas-column .drawer-workspace {
+  min-height: 0;
+}
+
+.workspace-canvas-column > .board-column {
+  height: 100%;
+}
+
+.workspace-reference-column > .drawer-reference,
+.workspace-reference-column > .workspace-placeholder-panel {
+  height: 100%;
+}
+
+.workspace-reference {
+  padding: 18px 16px;
+}
+
+.workspace-reference .drawer-reference-visual {
+  width: min(78%, 330px);
+  margin-block: 18px 10px;
+}
+
+.workspace-reference.settlement-card-reference .drawer-reference-visual {
+  width: min(84%, 360px);
+}
+
+.workspace-placeholder-panel,
+.spectator-answer-placeholder,
+.clue-card-placeholder {
+  min-width: 0;
+  padding: 24px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 9px;
+  border: 1px solid rgba(229, 197, 132, 0.28);
+  border-radius: 10px;
+  color: #eee3c8;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(55, 142, 146, 0.22), transparent 35%),
+    rgba(7, 29, 36, 0.76);
+  text-align: center;
+}
+
+.workspace-placeholder-panel span,
+.spectator-answer-placeholder span {
+  color: #e7bd5f;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.workspace-placeholder-panel strong,
+.spectator-answer-placeholder strong {
+  font-family: var(--font-display);
+  font-size: clamp(1.1rem, 1.5vw, 1.65rem);
+}
+
+.workspace-placeholder-panel p,
+.spectator-answer-placeholder p {
+  max-width: 280px;
+  margin: 0;
+  color: #8eafac;
+  font-size: 0.7rem;
+  line-height: 1.7;
+}
+
+.drawing-side-stack {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.workspace-round-panel {
+  min-height: 142px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(229, 197, 132, 0.3);
+  border-radius: 9px;
+  color: #efe5ca;
+  background:
+    radial-gradient(circle at 80% 35%, rgba(63, 149, 151, 0.25), transparent 40%),
+    rgba(6, 28, 35, 0.78);
+}
+
+.workspace-round-panel > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.workspace-round-panel > div:first-child strong {
+  color: #f3d27a;
+  font-size: 1rem;
+}
+
+.workspace-round-panel .plain-round-actions {
+  height: auto;
+  align-content: center;
+}
+
+.workspace-chat {
+  height: auto;
+  min-height: 0;
+}
+
+.answer-mode .workspace-canvas-column .canvas-shell {
+  width: 100%;
+}
+
+.workspace-answer-column > .answer-panel,
+.workspace-answer-column > .spectator-answer-placeholder {
+  height: 100%;
+}
+
+.workspace-answer-column .answer-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.workspace-answer-column .answer-grid button {
+  min-height: 118px;
+  padding: 8px 10px 8px 7px;
+  grid-template-columns: 29px 80px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.workspace-answer-column .answer-grid button > span {
+  width: 29px;
+  height: 36px;
+  font-size: 0.76rem;
+}
+
+.workspace-answer-column .answer-option-visual {
+  width: 80px;
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.workspace-answer-column .answer-grid button.selected .answer-option-visual {
+  filter: drop-shadow(0 7px 8px rgba(0, 0, 0, 0.42)) saturate(1.12);
+  transform: scale(1.04);
+}
+
+.workspace-answer-column .answer-option-copy > strong {
+  font-size: 0.82rem;
+}
+
+.workspace-answer-column .answer-option-details small {
+  font-size: 0.59rem;
+}
+
+.answer-clue-stack {
+  display: grid;
+  grid-template-rows: minmax(285px, 1.1fr) auto minmax(170px, 0.72fr);
+  gap: 10px;
+}
+
+.answer-clue-panel {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(229, 197, 132, 0.34);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(65, 156, 158, 0.28), transparent 42%),
+    rgba(5, 27, 34, 0.78);
+}
+
+.answer-clue-panel > .clue-card-reference {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.answer-clue-panel .clue-card-assembly {
+  width: min(100%, 245px);
+  margin: 0;
+}
+
+.answer-clue-stack > .round-card-reveal {
+  height: auto;
+}
+
+.answer-clue-stack .reveal-timing-rail {
+  padding: 9px;
+  gap: 7px;
+}
+
+.answer-clue-stack .clue-stage,
+.answer-clue-stack .clue-score {
+  padding: 7px;
+}
+
 .board-column { position: relative; min-width: 0; }
 
 .drawer-workspace {
@@ -3616,6 +3916,123 @@ textarea:focus {
   }
   .answering-layout .answer-option-visual { width: 76px; }
   .canvas-frame { min-height: 0; }
+}
+
+@media (max-width: 1180px) {
+  .game-context-strip {
+    grid-template-columns: minmax(210px, 0.72fr) minmax(360px, 1.28fr);
+  }
+
+  .game-context-strip .round-reveal-column {
+    grid-column: 1 / -1;
+    min-height: 68px;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-rows: 1fr;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid rgba(233, 204, 143, 0.13);
+  }
+
+  .game-workspace-grid {
+    --game-workspace-height: 650px;
+  }
+
+  .game-workspace-grid.draw-mode {
+    grid-template-columns: 290px minmax(0, 1fr);
+    grid-template-areas:
+      "reference canvas"
+      "side side";
+  }
+
+  .draw-mode .workspace-reference-column { grid-area: reference; }
+  .draw-mode .workspace-canvas-column { grid-area: canvas; }
+  .draw-mode .drawing-side-stack {
+    grid-area: side;
+    height: 420px;
+    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-rows: 1fr;
+  }
+
+  .game-workspace-grid.answer-mode {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-areas:
+      "canvas clue"
+      "answer answer";
+  }
+
+  .answer-mode .workspace-canvas-column { grid-area: canvas; }
+  .answer-mode .workspace-answer-column {
+    grid-area: answer;
+    height: 680px;
+  }
+  .answer-mode .answer-clue-stack { grid-area: clue; }
+}
+
+@media (max-width: 760px) {
+  .game-context-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .game-context-strip .round-room-column,
+  .game-context-strip .round-prompt-column,
+  .game-context-strip .round-reveal-column {
+    min-height: 0;
+    grid-column: auto;
+    border-right: 0;
+  }
+
+  .game-context-strip .round-room-column {
+    padding-block: 12px;
+  }
+
+  .game-context-strip .round-prompt-column {
+    padding: 14px 16px;
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .game-context-strip .round-reveal-column {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .game-workspace-grid.draw-mode,
+  .game-workspace-grid.answer-mode {
+    --game-workspace-height: auto;
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+
+  .game-workspace-grid .game-workspace-column {
+    grid-area: auto;
+    height: auto;
+  }
+
+  .draw-mode .workspace-reference-column { min-height: 360px; }
+  .draw-mode .workspace-reference-column > .drawer-reference,
+  .draw-mode .workspace-reference-column > .workspace-placeholder-panel { min-height: 360px; }
+
+  .draw-mode .drawing-side-stack {
+    height: auto;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 330px;
+  }
+
+  .answer-mode .workspace-answer-column { height: min(72vh, 680px); }
+  .answer-mode .answer-clue-stack {
+    height: auto;
+    grid-template-rows: 390px auto 330px;
+  }
+
+  .workspace-answer-column .answer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-answer-column .answer-grid button {
+    min-height: 112px;
+    grid-template-columns: 29px 74px minmax(0, 1fr);
+  }
+
+  .workspace-answer-column .answer-option-visual { width: 74px; }
 }
 
 /* Temporary card assembly lab. The game and this page share ClueCardWidget. */
