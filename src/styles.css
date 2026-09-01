@@ -3521,6 +3521,19 @@ textarea:focus {
   text-align: center;
 }
 
+.room-chat-panel .message.chat {
+  color: #e7f3ee;
+}
+
+.room-chat-panel .message.chat strong {
+  color: #68d2ca;
+}
+
+.room-chat-panel .message.system {
+  color: #e7c66f;
+  font-weight: 600;
+}
+
 .chat-empty {
   min-height: 100%;
   display: grid;
