@@ -2160,9 +2160,23 @@ textarea:focus {
   .workspace-answer-column .answer-option-details small { font-size: 0.55rem; }
 }
 
-.answer-clue-stack {
+.answer-canvas-stack {
+  height: auto;
+  min-height: var(--game-workspace-height);
   display: grid;
-  grid-template-rows: minmax(285px, 1.1fr) auto minmax(170px, 0.72fr);
+  grid-template-rows: auto minmax(280px, 1fr);
+  gap: 10px;
+}
+
+.answer-canvas-stack > .board-column {
+  height: auto;
+}
+
+.answer-below-reveal {
+  min-width: 0;
+  min-height: 280px;
+  display: grid;
+  grid-template-columns: minmax(190px, 0.43fr) minmax(0, 0.57fr);
   gap: 10px;
 }
 
@@ -2190,22 +2204,26 @@ textarea:focus {
 }
 
 .answer-clue-panel .clue-card-assembly {
-  width: min(100%, 245px);
+  width: min(100%, 205px);
   margin: 0;
 }
 
-.answer-clue-stack > .round-card-reveal {
-  height: auto;
+.answer-below-reveal > .round-card-reveal {
+  height: 100%;
 }
 
-.answer-clue-stack .reveal-timing-rail {
+.answer-below-reveal .reveal-timing-rail {
   padding: 9px;
   gap: 7px;
 }
 
-.answer-clue-stack .clue-stage,
-.answer-clue-stack .clue-score {
+.answer-below-reveal .clue-stage,
+.answer-below-reveal .clue-score {
   padding: 7px;
+}
+
+.answer-chat-column > .workspace-chat {
+  height: 100%;
 }
 
 .board-column { position: relative; min-width: 0; }
@@ -2829,6 +2847,7 @@ textarea:focus {
   position: relative;
   width: 100%;
   height: auto;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   border: 8px solid #6b4528;
   border-radius: 3px 3px 12px 12px;
@@ -2849,8 +2868,7 @@ textarea:focus {
 
 .canvas-frame canvas {
   width: 100%;
-  height: auto;
-  aspect-ratio: 4 / 3;
+  height: 100%;
   display: block;
   cursor: default;
   touch-action: none;
@@ -3972,7 +3990,7 @@ textarea:focus {
   .game-workspace-grid.answer-mode {
     grid-template-columns: minmax(0, 1fr) 340px;
     grid-template-areas:
-      "canvas clue"
+      "canvas chat"
       "answer answer";
   }
 
@@ -3981,7 +3999,7 @@ textarea:focus {
     grid-area: answer;
     height: 680px;
   }
-  .answer-mode .answer-clue-stack { grid-area: clue; }
+  .answer-mode .answer-chat-column { grid-area: chat; }
 }
 
 @media (max-width: 760px) {
@@ -4034,9 +4052,12 @@ textarea:focus {
   }
 
   .answer-mode .workspace-answer-column { height: min(72vh, 680px); }
-  .answer-mode .answer-clue-stack {
-    height: auto;
-    grid-template-rows: 390px auto 330px;
+  .answer-mode .answer-canvas-stack { min-height: 0; }
+  .answer-mode .answer-chat-column { height: 330px; }
+
+  .answer-below-reveal {
+    grid-template-columns: 1fr;
+    grid-template-rows: 390px auto;
   }
 
   .workspace-answer-column .answer-grid {

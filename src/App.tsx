@@ -1083,7 +1083,7 @@ function GameRoom({
         <aside className="round-reveal-column">
           <span className="overview-eyebrow">当前模式</span>
           <strong>{useAnswerLayout ? room.isSpectator ? "围观对局" : "选择答题" : room.phase === "drawing" ? "自由作画" : "回合准备"}</strong>
-          <small>{useAnswerLayout ? "画布在左 · 选项在中 · 提示在右" : "参考在左 · 画布在中 · 计时在右"}</small>
+          <small>{useAnswerLayout ? "画布在左 · 提示在画布下 · 选项在中" : "参考在左 · 画布在中 · 计时在右"}</small>
         </aside>
       </section>
 
@@ -1107,7 +1107,27 @@ function GameRoom({
       <div className={`game-workspace-grid ${useAnswerLayout ? "answer-mode" : "draw-mode"}`}>
         {useAnswerLayout ? (
           <>
-            <section className="game-workspace-column workspace-canvas-column">{boardPanel}</section>
+            <section className="game-workspace-column workspace-canvas-column answer-canvas-stack">
+              {boardPanel}
+              <div className="answer-below-reveal">
+                <div className="answer-clue-panel">
+                  {round?.clues && round.clueCard ? (
+                    <ClueCardReveal card={round.clueCard} fields={round.clues.fields} stage={round.clues.stage} />
+                  ) : (
+                    <div className="clue-card-placeholder">提示卡正在准备</div>
+                  )}
+                </div>
+                {round && (
+                  <RoundCluePanel
+                    canEndRound={room.canEndRound}
+                    endingRound={endingRound}
+                    isSpectator={room.isSpectator}
+                    onEndRound={endSoloRound}
+                    round={round}
+                  />
+                )}
+              </div>
+            </section>
             <section className="game-workspace-column workspace-answer-column">
               {isAnswering && round ? (
                 <ChoiceAnswerPanel onError={onError} round={round} />
@@ -1119,23 +1139,7 @@ function GameRoom({
                 </div>
               )}
             </section>
-            <aside className="game-workspace-column answer-clue-stack">
-              <div className="answer-clue-panel">
-                {round?.clues && round.clueCard ? (
-                  <ClueCardReveal card={round.clueCard} fields={round.clues.fields} stage={round.clues.stage} />
-                ) : (
-                  <div className="clue-card-placeholder">提示卡正在准备</div>
-                )}
-              </div>
-              {round && (
-                <RoundCluePanel
-                  canEndRound={room.canEndRound}
-                  endingRound={endingRound}
-                  isSpectator={room.isSpectator}
-                  onEndRound={endSoloRound}
-                  round={round}
-                />
-              )}
+            <aside className="game-workspace-column answer-chat-column">
               <RoomChatPanel className="workspace-chat" onError={onError} room={room} />
             </aside>
           </>
