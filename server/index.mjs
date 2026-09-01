@@ -26,7 +26,7 @@ import { getProgressiveDrawingPlan } from "../src/progressive-drawing.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
-const CHOICE_OPTION_COUNT = 10;
+const CHOICE_OPTION_COUNT = 9;
 const answerSubmitCooldownOverrideMs = Number(
   process.env.ANSWER_SUBMIT_COOLDOWN_OVERRIDE_MS,
 );
@@ -213,7 +213,7 @@ if (process.env.NODE_ENV !== "production") {
   ALLOWED_ORIGINS.add("http://127.0.0.1:5173");
 }
 const ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家从十个候选答案中选择并提交。";
+const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家从九个候选答案中选择并提交。";
 const CARD_IMAGE_SOURCE =
   "https://art.hearthstonejson.com/v1/render/latest/zhCN/256x";
 const cardImageDir = path.resolve(
@@ -1540,7 +1540,7 @@ function startDrawing(room, word) {
   if (room.recentWords.length > 100) room.recentWords.shift();
   addSystemMessage(
     room,
-    `${room.players.get(room.current.drawerId)?.name} 开始作画！请从十个选项中提交答案。`,
+    `${room.players.get(room.current.drawerId)?.name} 开始作画！请从九个选项中提交答案。`,
   );
   if (room.players.get(room.current.drawerId)?.isBot) {
     addSystemMessage(room, "AI 正在先画卡面椭圆和主体彩色轮廓，再用高分辨率颜色块逐步铺色与补充暗部。");
@@ -2050,7 +2050,7 @@ io.on("connection", (socket) => {
       return;
     }
     if (getRoomWordBank(context.room).choiceWords.length < 3) {
-      respond(callback, { ok: false, error: "当前词库不足以生成十选一题目，请扩大题目范围" });
+      respond(callback, { ok: false, error: "当前词库不足以生成九选一题目，请扩大题目范围" });
       return;
     }
     let players = activePlayers(context.room);

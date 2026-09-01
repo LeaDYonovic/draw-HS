@@ -21,7 +21,7 @@ const PAGE_SCALE_KEY = "hearth-draw-page-scale";
 const FONT_SCALE_KEY = "hearth-draw-font-scale";
 const PAGE_SCALE_STEPS = [80, 90, 100, 110, 120] as const;
 const FONT_SCALE_STEPS = [90, 100, 110, 120, 130] as const;
-const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家从十个候选答案中选择并提交。";
+const DEFAULT_ROOM_RULES = "轮流从三张卡牌中选题作画，其他玩家从九个候选答案中选择并提交。";
 const CARD_TYPE_LABELS: Record<string, string> = {
   MINION: "随从",
   SPELL: "法术",
@@ -363,11 +363,11 @@ function Home({
           </div>
         </div>
         <p className="hero-description">
-          创建一桌，把房间号发给朋友。轮流抽取炉石卡牌名作画，从十张候选卡牌中提交答案。
+          创建一桌，把房间号发给朋友。轮流抽取炉石卡牌名作画，从九张候选卡牌中提交答案。
         </p>
         <div className="feature-strip">
           <span>在线玩家大厅</span>
-          <span>十选一 + 搜索辅助</span>
+          <span>九选一 + 搜索辅助</span>
           <span>大厅与房间聊天</span>
         </div>
       </section>
@@ -780,7 +780,7 @@ function RoomLobby({
               </div>
               <div className="word-bank-picker-summary">
                 <strong>{room.wordBankName}</strong>
-                <span>{room.wordBankChoiceCount} 张支持十选一</span>
+                <span>{room.wordBankChoiceCount} 张支持九选一</span>
               </div>
               <small>
                 {room.isHost
@@ -864,7 +864,7 @@ function RoomLobby({
             <div className="setting-item">
               <label>答题方式</label>
               <div className="fixed-setting">
-                <strong>十选一</strong>
+                <strong>九选一</strong>
                 <small>可用搜索工具筛选</small>
               </div>
             </div>
@@ -1405,7 +1405,7 @@ function ChoiceAnswerPanel({
           <small>
             {activeFilterCount > 0
               ? `${activeFilterCount} 个条件 · 找到 ${visibleOptions.length} 项`
-              : "按名称与属性筛选十个选项"}
+              : "按名称与属性筛选九个选项"}
           </small>
         </summary>
         <div className="choice-search-fields">

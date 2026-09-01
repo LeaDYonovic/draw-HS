@@ -107,16 +107,16 @@ test("picks distinct words while respecting recent exclusions", () => {
   assert.ok(!picked.includes("甲"));
 });
 
-test("builds 10 shuffled answers with exactly one correct option", () => {
+test("builds 9 shuffled answers with exactly one correct option", () => {
   const words = Array.from(
     { length: 30 },
     (_, index) => `卡牌${String(index).padStart(2, "0")}`,
   );
   const answer = "卡牌07";
-  const options = buildAnswerOptions(words, answer, 10);
+  const options = buildAnswerOptions(words, answer, 9);
 
-  assert.equal(options.length, 10);
-  assert.equal(new Set(options).size, 10);
+  assert.equal(options.length, 9);
+  assert.equal(new Set(options).size, 9);
   assert.equal(options.filter((word) => word === answer).length, 1);
   assert.ok(
     options.every(
@@ -147,10 +147,10 @@ test("builds card distractors from the closest matching attribute pool", () => {
     health: null,
   }));
   const cards = [answer, ...exactMatches, ...unrelated];
-  const options = buildCardAnswerOptions(cards, answer, 10);
+  const options = buildCardAnswerOptions(cards, answer, 9);
 
-  assert.equal(options.length, 10);
-  assert.equal(new Set(options).size, 10);
+  assert.equal(options.length, 9);
+  assert.equal(new Set(options).size, 9);
   assert.equal(options.filter((name) => name === answer.name).length, 1);
   assert.ok(
     options
@@ -161,26 +161,26 @@ test("builds card distractors from the closest matching attribute pool", () => {
 
 test("only choice words with enough same-length alternatives are eligible", () => {
   const commonWords = Array.from(
-    { length: 10 },
+    { length: 9 },
     (_, index) => `常用${String(index).padStart(2, "0")}`,
   );
   const rareWords = ["甲", "乙"];
-  const eligible = getChoiceEligibleWords([...commonWords, ...rareWords], 10);
+  const eligible = getChoiceEligibleWords([...commonWords, ...rareWords], 9);
 
   assert.deepEqual(eligible, commonWords);
 });
 
-test("only cards with nine same-type and same-length distractors are eligible", () => {
-  const shared = Array.from({ length: 10 }, (_, index) => ({
+test("only cards with eight same-type and same-length distractors are eligible", () => {
+  const shared = Array.from({ length: 9 }, (_, index) => ({
     name: `随从${String(index).padStart(2, "0")}`,
     type: "MINION",
   }));
-  const sparse = Array.from({ length: 9 }, (_, index) => ({
+  const sparse = Array.from({ length: 8 }, (_, index) => ({
     name: `法术${String(index).padStart(2, "0")}`,
     type: "SPELL",
   }));
 
-  assert.deepEqual(getChoiceEligibleCards([...shared, ...sparse], 10), shared);
+  assert.deepEqual(getChoiceEligibleCards([...shared, ...sparse], 9), shared);
 });
 
 test("searches card JSON by name and exact combat stats without duplicate names", () => {

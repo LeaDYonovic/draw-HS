@@ -185,9 +185,9 @@ test("a wrong choice can be retried after the one-second submit cooldown", async
     { roundTimeMs: 2_500 },
   );
   assert.equal(drawing.round.questionType, "choice");
-  assert.equal(drawing.round.answerOptions.length, 10);
-  assert.equal(new Set(drawing.round.answerOptions).size, 10);
-  assert.equal(drawing.round.answerOptionCards.length, 10);
+  assert.equal(drawing.round.answerOptions.length, 9);
+  assert.equal(new Set(drawing.round.answerOptions).size, 9);
+  assert.equal(drawing.round.answerOptionCards.length, 9);
   assert.equal(drawing.canEndRound, false);
   assert.deepEqual(
     drawing.round.answerOptionCards.map((card) => card.name),
@@ -333,8 +333,8 @@ test("legacy search settings still produce choices while card search remains ava
   );
   assert.equal(drawing.settings.answerMode, "choice");
   assert.equal(drawing.round.questionType, "choice");
-  assert.equal(drawing.round.answerOptions.length, 10);
-  assert.equal(drawing.round.answerOptionCards.length, 10);
+  assert.equal(drawing.round.answerOptions.length, 9);
+  assert.equal(drawing.round.answerOptionCards.length, 9);
   assert.equal(hostState.current.round.answerOptions.length, 0);
 
   const searchResponse = await fetch(
@@ -569,7 +569,7 @@ test("a solo host can skip bot answers and immediately finish solo rounds", asyn
   assert.equal(aiDrawing.isDrawer, false);
   assert.equal(aiDrawing.canEndRound, true);
   assert.equal(aiDrawing.round.questionType, "choice");
-  assert.equal(aiDrawing.round.answerOptionCards.length, 10);
+  assert.equal(aiDrawing.round.answerOptionCards.length, 9);
   assert.ok(
     aiDrawing.messages.some((message) =>
       message.text.includes("AI 正在先画卡面椭圆"),

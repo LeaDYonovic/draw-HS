@@ -107,7 +107,7 @@ export function countWordCharacters(value) {
   return [...String(value ?? "")].length;
 }
 
-export function getChoiceEligibleWords(words, count = 20) {
+export function getChoiceEligibleWords(words, count = 9) {
   const targetCount = Math.max(1, Math.round(count));
   const groupSizes = new Map();
 
@@ -121,7 +121,7 @@ export function getChoiceEligibleWords(words, count = 20) {
   );
 }
 
-export function getChoiceEligibleCards(cards, count = 10) {
+export function getChoiceEligibleCards(cards, count = 9) {
   const targetCount = Math.max(1, Math.round(count));
   const groupSizes = new Map();
 
@@ -154,7 +154,7 @@ export function pickWords(words, count, excluded = []) {
   return picked;
 }
 
-export function buildAnswerOptions(words, answer, count = 20) {
+export function buildAnswerOptions(words, answer, count = 9) {
   const targetCount = Math.max(1, Math.round(count));
   const normalizedAnswer = normalizeGuess(answer);
   const answerLength = countWordCharacters(answer);
@@ -176,7 +176,7 @@ export function buildAnswerOptions(words, answer, count = 20) {
   return options;
 }
 
-export function buildCardAnswerOptions(cards, answer, count = 10) {
+export function buildCardAnswerOptions(cards, answer, count = 9) {
   const targetCount = Math.max(1, Math.round(count));
   const answerCard = typeof answer === "string"
     ? cards.find((card) => normalizeGuess(card.name) === normalizeGuess(answer))
