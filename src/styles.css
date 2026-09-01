@@ -2114,10 +2114,10 @@ textarea:focus {
 }
 
 .workspace-answer-column .answer-grid button {
-  min-height: 118px;
+  min-height: 158px;
   padding: 8px 10px 8px 7px;
-  grid-template-columns: 29px 80px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 29px 100px minmax(0, 1fr);
+  gap: 10px;
 }
 
 .workspace-answer-column .answer-grid button > span {
@@ -2127,7 +2127,7 @@ textarea:focus {
 }
 
 .workspace-answer-column .answer-option-visual {
-  width: 80px;
+  width: 100px;
   transition: filter 160ms ease, transform 160ms ease;
 }
 
@@ -2142,6 +2142,22 @@ textarea:focus {
 
 .workspace-answer-column .answer-option-details small {
   font-size: 0.59rem;
+}
+
+@media (min-width: 1181px) and (max-width: 1600px) {
+  .workspace-answer-column .answer-grid button {
+    min-height: 140px;
+    grid-template-columns: 27px 88px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .workspace-answer-column .answer-grid button > span {
+    width: 27px;
+  }
+
+  .workspace-answer-column .answer-option-visual { width: 88px; }
+  .workspace-answer-column .answer-option-copy > strong { font-size: 0.76rem; }
+  .workspace-answer-column .answer-option-details small { font-size: 0.55rem; }
 }
 
 .answer-clue-stack {
