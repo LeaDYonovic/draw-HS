@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { CanvasBoard } from "./components/CanvasBoard";
 import { CardImage } from "./components/CardImage";
 import { ClueCardWidget } from "./components/ClueCardWidget";
+import {
+  ANSWER_OPTION_STAGE_LABELS,
+  isAnswerFilterUnlocked,
+  normalizeAnswerOptionStage,
+  visibleAnswerDetailRows,
+} from "./answer-reveal.mjs";
 import { emitWithAck, socket } from "./realtime";
 import { calculateScore } from "./score-rules.mjs";
 import { watchForAppUpdates } from "./version-watch";
@@ -1393,15 +1399,17 @@ function ChoiceAnswerPanel({
   };
 
   const activeFilterCount = Object.values(filters).filter((value) => value.trim()).length;
+  const optionRevealStage = normalizeAnswerOptionStage(round.clues?.stage);
+  const optionCardType = round.answerOptionCards[0]?.type ?? "";
   const visibleOptions = round.answerOptionCards
     .map((card, index) => ({ card, index }))
     .filter(({ card }) => matchesChoiceSearch(card, filters));
 
   return (
-    <aside className="answer-panel choice-answer-panel">
+    <aside className={`answer-panel choice-answer-panel answer-options-stage-${optionRevealStage}`}>
       <div className="answer-heading">
         <div><span className="live-dot" />选择并提交答案</div>
-        <small>答错可继续，每次提交冷却 1 秒</small>
+        <small>{ANSWER_OPTION_STAGE_LABELS[optionRevealStage]} · 提交冷却 1 秒</small>
       </div>
       <details className="choice-search-tool">
         <summary>
@@ -1409,7 +1417,9 @@ function ChoiceAnswerPanel({
           <small>
             {activeFilterCount > 0
               ? `${activeFilterCount} 个条件 · 找到 ${visibleOptions.length} 项`
-              : "按名称与属性筛选九个选项"}
+              : optionRevealStage === 0
+                ? "属性筛选随线索逐步解锁"
+                : "按名称与已揭示属性筛选九个选项"}
           </small>
         </summary>
         <div className="choice-search-fields">
@@ -1433,11 +1443,12 @@ function ChoiceAnswerPanel({
               <label key={field}>
                 <span>{label}</span>
                 <input
+                  disabled={!isAnswerFilterUnlocked(field, optionRevealStage, optionCardType)}
                   inputMode="numeric"
                   max={field === "wordLength" ? "40" : "99"}
                   min={field === "wordLength" ? "1" : "0"}
                   onChange={(event) => updateFilter(field, event.target.value)}
-                  placeholder="不限"
+                  placeholder={isAnswerFilterUnlocked(field, optionRevealStage, optionCardType) ? "不限" : "待揭示"}
                   type="number"
                   value={filters[field]}
                 />
@@ -1457,6 +1468,7 @@ function ChoiceAnswerPanel({
           </div>
         ) : visibleOptions.map(({ card, index }) => {
           const incorrect = incorrectIndexes.has(index);
+          const detailRows = visibleAnswerDetailRows(formatCardSearchRows(card), optionRevealStage);
           return (
             <button
               aria-pressed={selectedIndex === index}
@@ -1470,11 +1482,17 @@ function ChoiceAnswerPanel({
               type="button"
             >
               <span>{String(index + 1).padStart(2, "0")}</span>
-              <CardImage card={card} className="answer-option-visual" loading="eager" />
+              <CardImage
+                card={card}
+                className={`answer-option-visual card-type-${card.type.toLocaleLowerCase()}`}
+                loading="eager"
+              />
               <div className="answer-option-copy">
                 <strong>{card.name}</strong>
                 <div className="answer-option-details">
-                  {formatCardSearchRows(card).map((row) => <small key={row}>{row}</small>)}
+                  {detailRows.length > 0
+                    ? detailRows.map((row) => <small key={row}>{row}</small>)
+                    : <small className="answer-option-pending">属性等待揭示</small>}
                 </div>
               </div>
             </button>
