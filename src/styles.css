@@ -2110,13 +2110,16 @@ textarea:focus {
 
 .workspace-answer-column .answer-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(233px, 1fr));
+  align-content: stretch;
   gap: 8px;
 }
 
 .workspace-answer-column .answer-grid button {
-  min-height: 158px;
-  padding: 8px 10px 8px 7px;
-  grid-template-columns: 29px 100px minmax(0, 1fr);
+  height: 100%;
+  min-height: 233px;
+  padding: 4px 10px 4px 7px;
+  grid-template-columns: 29px 150px minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -2127,7 +2130,7 @@ textarea:focus {
 }
 
 .workspace-answer-column .answer-option-visual {
-  width: 100px;
+  width: 150px;
   transition: filter 160ms ease, transform 160ms ease;
 }
 
@@ -2145,9 +2148,13 @@ textarea:focus {
 }
 
 @media (min-width: 1181px) and (max-width: 1600px) {
+  .workspace-answer-column .answer-grid {
+    grid-template-rows: repeat(3, minmax(206px, 1fr));
+  }
+
   .workspace-answer-column .answer-grid button {
-    min-height: 140px;
-    grid-template-columns: 27px 88px minmax(0, 1fr);
+    min-height: 206px;
+    grid-template-columns: 27px 132px minmax(0, 1fr);
     gap: 7px;
   }
 
@@ -2155,7 +2162,7 @@ textarea:focus {
     width: 27px;
   }
 
-  .workspace-answer-column .answer-option-visual { width: 88px; }
+  .workspace-answer-column .answer-option-visual { width: 132px; }
   .workspace-answer-column .answer-option-copy > strong { font-size: 0.76rem; }
   .workspace-answer-column .answer-option-details small { font-size: 0.55rem; }
 }
@@ -4075,9 +4082,12 @@ textarea:focus {
 
   .workspace-answer-column .answer-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
+    align-content: start;
   }
 
   .workspace-answer-column .answer-grid button {
+    height: auto;
     min-height: 112px;
     grid-template-columns: 29px 74px minmax(0, 1fr);
   }
